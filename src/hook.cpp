@@ -1,0 +1,51 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
+#include <dlfcn.h>
+#include <pthread.h>
+#include <cstdlib>
+#include <unistd.h>
+#include <sys/syscall.h>
+#include "PapiManager.hpp"
+#include "MonitorManager.hpp"
+
+static int (*real_pthread_create)(pthread_t *, const pthread_attr_t *, void *(*)(void *), void *);
+static pthread_once_t once_control = PTHREAD_ONCE_INIT;
+
+static void init_real_pthread() {
+    real_pthread_create = (decltype(real_pthread_create))dlsym(RTLD_NEXT, "pthread_create");
+}
+
+static void* thread_entry(void* arg) {
+    auto* real = reinterpret_cast<void **>(arg);
+    auto* fn = reinterpret_cast<void *(*)(void *)>(real[0]);
+    void* fn_arg = real[1];
+    free(arg);
+
+    pid_t tid = syscall(SYS_gettid);
+    PapiManager::getInstance().registerThread(tid, pthread_self());
+    void* result = fn(fn_arg);
+    PapiManager::getInstance().markThreadFinished(pthread_self());
+    return result;
+}
+
+extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+                              void *(*start_routine)(void *), void *arg) {
+    pthread_once(&once_control, init_real_pthread);
+    void** wrapper_args = (void**)malloc(2 * sizeof(void*));
+    wrapper_args[0] = (void*)start_routine;
+    wrapper_args[1] = arg;
+    return real_pthread_create(thread, attr, thread_entry, wrapper_args);
+}
+
+__attribute__((constructor)) static void init_urja() {
+    pid_t tid = syscall(SYS_gettid);
+    PapiManager::getInstance().initialize();
+    PapiManager::getInstance().registerThread(tid, pthread_self());
+    MonitorManager::start();
+}
+
+__attribute__((destructor)) static void cleanup_urja() {
+    MonitorManager::stop();
+}
