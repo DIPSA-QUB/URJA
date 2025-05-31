@@ -13,6 +13,7 @@ public:
     static PapiManager& getInstance();
 
     void initialize();
+    void setMonitorThread(pthread_t id);
     void registerThread(pid_t tid, pthread_t ptid);
     void markThreadFinished(pthread_t ptid);
     void updateAllThreads(const char* timestamp);

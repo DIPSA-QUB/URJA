@@ -56,6 +56,7 @@ void* MonitorManager::monitorLoop(void*) {
 void MonitorManager::start() {
     pthread_create(&monitorThread, nullptr, monitorLoop, nullptr);
     pthread_detach(monitorThread);
+    PapiManager::getInstance().setMonitorThread(monitorThread);
 }
 
 void MonitorManager::stop() {
