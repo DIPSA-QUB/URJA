@@ -29,7 +29,7 @@ private:
     pthread_t pthreadId_;
     bool finished_;
     int eventSet_;
-    long long prevValues_[4];
+    std::vector<long long> prevValues_;
 };
 
 #endif
