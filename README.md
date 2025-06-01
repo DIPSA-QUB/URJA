@@ -36,7 +36,7 @@ make
 ## Usage
 
 ```bash
-LD_LIBRARY_PATH=/path/to/papi/src/install/lib LD_PRELOAD=build/bin/liburja.so /path/to/your_app
+LD_PRELOAD=build/bin/liburja.so /path/to/your_app
 ```
 
 ### Requirements for `URJA_ENERGY_BACKEND=shell`
