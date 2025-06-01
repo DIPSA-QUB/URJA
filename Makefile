@@ -21,7 +21,7 @@ PAPI_LIB       := -L$(PAPI_DIR)/lib -lpapi -ldl -lpthread
 # ========================
 CXX            := g++
 CXXFLAGS       := -Wall -O2 -fPIC -std=c++17 -I$(INCLUDE_DIR) $(PAPI_INCLUDE)
-LDFLAGS        := -shared $(PAPI_LIB)
+LDFLAGS        := -shared -Wl,-rpath,$(PAPI_DIR)/lib $(PAPI_LIB)
 
 # ========================
 # Files
