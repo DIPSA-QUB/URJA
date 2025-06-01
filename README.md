@@ -19,7 +19,7 @@ URJA is a lightweight dynamic monitoring library designed to log per-thread hard
 ### Set appropriate environment variables
 
 ```bash
-export PAPI_DIR=/path/to/papi/src/install
+export PAPI_DIR=/path/to/papi/
 export URJA_PAPI_EVENTS=PAPI_TOT_CYC,PAPI_TOT_INS,PAPI_L2_DCM,PAPI_TLB_DM
 export URJA_ENERGY_BACKEND=sysfs     # Options: sysfs, shell
 export URJA_INTERVAL_MS=1000         # Monitoring interval in milliseconds
