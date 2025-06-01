@@ -1,4 +1,5 @@
 #include "PapiManager.hpp"
+#include "LoggerManager.hpp"
 #include <algorithm>
 #include <cstdio>
 
@@ -21,7 +22,7 @@ void PapiManager::setMonitorThread(pthread_t id) {
 void PapiManager::initialize() {
     mainThreadId_ = pthread_self();
     if (PAPI_library_init(PAPI_VER_CURRENT) != PAPI_VER_CURRENT)
-        fprintf(stderr, "PAPI initialization failed.\n");
+        LoggerManager::getInstance().logLine("INIT","ERROR", "PAPI initialization failed.");
 }
 
 void PapiManager::registerThread(pid_t tid, pthread_t ptid) {

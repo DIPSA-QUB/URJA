@@ -9,6 +9,7 @@
 #include <sys/syscall.h>
 #include "PapiManager.hpp"
 #include "MonitorManager.hpp"
+#include "LoggerManager.hpp"
 
 static int (*real_pthread_create)(pthread_t *, const pthread_attr_t *, void *(*)(void *), void *);
 static pthread_once_t once_control = PTHREAD_ONCE_INIT;
@@ -40,6 +41,7 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 }
 
 __attribute__((constructor)) static void init_urja() {
+    LoggerManager::getInstance().initialize();
     pid_t tid = syscall(SYS_gettid);
     PapiManager::getInstance().initialize();
     PapiManager::getInstance().registerThread(tid, pthread_self());

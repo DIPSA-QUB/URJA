@@ -1,6 +1,7 @@
 #include "MonitorManager.hpp"
 #include "PapiManager.hpp"
 #include "EnergyMonitor.hpp"
+#include "LoggerManager.hpp"
 #include <unistd.h>
 #include <ctime>
 #include <cstdio>
@@ -15,12 +16,13 @@ static pthread_t monitorThread;
 static void initSleepDuration() {
     const char* env = std::getenv("URJA_INTERVAL_MS");
     if (env) {
-        int val = std::atoi(env);
-        if (val > 0) {
-            monitorSleepUs = val * 1000; // convert ms to us
-            printf("[URJA] Monitoring interval set to %d ms via URJA_INTERVAL_MS\n", val);
+        int msec = std::atoi(env);
+        if (msec > 0) {
+            monitorSleepUs = msec * 1000;
+            //printf("[URJA] Monitoring interval set to %d ms via URJA_INTERVAL_MS\n", msec);
+            LoggerManager::getInstance().logLine("INIT","DEBUG", "Monitoring interval set to " + std::to_string(msec) +" ms.");
         } else {
-            fprintf(stderr, "[URJA][WARN] Invalid URJA_INTERVAL_MS: %s\n", env);
+            LoggerManager::getInstance().logLine("INIT","ERROR", std::string("Invalid URJA_INTERVAL_MS: ") + env);
         }
     }
 }
@@ -43,11 +45,12 @@ void* MonitorManager::monitorLoop(void*) {
         EnergyMonitor::getInstance().monitor(timestamp);
         PapiManager::getInstance().updateAllThreads(timestamp);
 
-	clock_gettime(CLOCK_MONOTONIC, &end);
+	    clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed_ms = (end.tv_sec - start.tv_sec) * 1000.0 +
                             (end.tv_nsec - start.tv_nsec) / 1e6;
 
-        printf("[URJA][DEBUG] Monitor loop took %.2f ms\n", elapsed_ms);
+        //printf("[URJA][DEBUG] Monitor loop took %.2f ms\n", elapsed_ms);
+        LoggerManager::getInstance().logLine(timestamp, "DEBUG", "Monitoring loop duration: " + std::to_string(elapsed_ms) + " ms");
         usleep(monitorSleepUs);
     }
     return nullptr;

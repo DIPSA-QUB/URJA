@@ -1,6 +1,7 @@
 #include "EnergyMonitor.hpp"
 #include "RaplSysfsMonitor.hpp"
 #include "RaplShellMonitor.hpp"
+#include "LoggerManager.hpp"
 #include <cstdio>
 #include <cstring>
 
@@ -18,7 +19,8 @@ void EnergyMonitor::initialize() {
         auto* shell = new RaplShellMonitor();
         shell->initialize();
         backend_ = shell;
-        printf("[URJA][INIT] Using RAPL shell backend.\n");
+        //printf("[URJA][INIT] Using RAPL shell backend.\n");
+        LoggerManager::getInstance().logLine("INIT","DEBUG", "Using RAPL shell backend.");
         return;
     } else if (backend && std::strcmp(backend, "sysfs") == 0) {
         auto* sysfs = new RaplSysfsMonitor();
@@ -26,22 +28,26 @@ void EnergyMonitor::initialize() {
 
         if (sysfs->domainCount() > 0) {
             backend_ = sysfs;
-            printf("[URJA][INIT] Using RAPL sysfs backend.\n");
+            //printf("[URJA][INIT] Using RAPL sysfs backend.\n");
+            LoggerManager::getInstance().logLine("INIT","DEBUG", "Using RAPL sysfs backend.");
             return;
         } else {
             delete sysfs;
             if (backend && std::strcmp(backend, "sysfs") == 0) {
-                fprintf(stderr, "[URJA][ERROR] Sysfs backend forced, but no RAPL domains found.\n");
+                //fprintf(stderr, "[URJA][ERROR] Sysfs backend forced, but no RAPL domains found.\n");
+                LoggerManager::getInstance().logLine("INIT","ERROR", "Sysfs backend forced, but no RAPL domains found.");
                 return;
             }
         }
     }
-    fprintf(stderr, "[URJA][ERROR] No energy backend specified.\n");
+    //fprintf(stderr, "[URJA][ERROR] No energy backend specified.\n");
+    LoggerManager::getInstance().logLine("INIT","ERROR", "No energy backend specified.");
 }
 
 void EnergyMonitor::monitor(const char* timestamp) {
     if (backend_)
         backend_->monitor(timestamp);
     else
-        fprintf(stderr, "[URJA][ERROR] RAPL monitor not initialized.\n");
+        //fprintf(stderr, "[URJA][ERROR] RAPL monitor not initialized.\n");
+        LoggerManager::getInstance().logLine("INIT","ERROR", "Energy monitor not initialized.");
 }
