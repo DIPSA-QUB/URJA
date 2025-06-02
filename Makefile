@@ -10,12 +10,13 @@ INCLUDE_DIR    := include
 # ========================
 # PAPI Configuration
 # ========================
+ifeq ($(filter clean,$(MAKECMDGOALS)),)
 ifndef PAPI_DIR
 $(error PAPI_DIR environment variable is not set. Please run 'make PAPI_DIR=/path/to/papi')
 endif
 PAPI_INCLUDE   := -I$(PAPI_DIR)/include
 PAPI_LIB       := -L$(PAPI_DIR)/lib -lpapi -ldl -lpthread
-
+endif
 # ========================
 # Compiler and Flags
 # ========================

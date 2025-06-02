@@ -7,10 +7,17 @@
 #include <mutex>
 #include <chrono>
 
+/// Shell command used to invoke external RAPL reading script
 #define SHELL_RAPL_CMD "sudo /var/shared/power/bin/rapl_read.sh"
 
+/// Internal flag to ensure one-time initialization
 static bool initialized = false;
 
+/**
+ * @brief Initializes the shell-based RAPL monitor by reading the initial energy values.
+ *
+ * This method captures a baseline snapshot of energy values from the external shell script.
+ */
 void RaplShellMonitor::initialize() {
     if (!initialized) {
         prev_ = parseShellOutput();
@@ -18,6 +25,14 @@ void RaplShellMonitor::initialize() {
     }
 }
 
+/**
+ * @brief Parses the output of the external RAPL reading script.
+ *
+ * Expects lines in the format:
+ * `intel-rapl... ; index ; domain ; energy_uj ; max_energy_uj`
+ *
+ * @return A vector of ShellDomain structs parsed from the script output.
+ */
 std::vector<RaplShellMonitor::ShellDomain> RaplShellMonitor::parseShellOutput() {
     // valgrind <- use for debugging
     std::vector<ShellDomain> result;
@@ -29,6 +44,7 @@ std::vector<RaplShellMonitor::ShellDomain> RaplShellMonitor::parseShellOutput() 
 
     char line[256];
     while (fgets(line, sizeof(line), fp)) {
+        // Skip lines not starting with "intel-rapl"
         if (strncmp(line, "intel-rapl", 10) != 0) continue;
         char name[64], index[16], domain[64];
         unsigned long long energy, max_energy;
@@ -38,7 +54,7 @@ std::vector<RaplShellMonitor::ShellDomain> RaplShellMonitor::parseShellOutput() 
         }
     }
 
-    int status = pclose(fp); // Always close
+    int status = pclose(fp); // Always close the process
     if (status == -1) {
         perror("pclose");
     } else if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
@@ -47,6 +63,15 @@ std::vector<RaplShellMonitor::ShellDomain> RaplShellMonitor::parseShellOutput() 
     return result;
 }
 
+/**
+ * @brief Logs the energy usage delta for each domain by comparing current and previous readings.
+ *
+ * Calculates energy consumption since the last call, accounting for wraparounds.
+ * Output format:
+ * `[URJA][RAPL][<timestamp]> PACKAGE_0: <uj>, DRAM_0: <uj>, ...`
+ *
+ * @param timestamp String timestamp used in logging
+ */
 void RaplShellMonitor::monitor(const char* timestamp) {
     auto curr = parseShellOutput();
     printf("[URJA][RAPL][%s]> ", timestamp);
@@ -57,6 +82,7 @@ void RaplShellMonitor::monitor(const char* timestamp) {
             if (curr[i].energy_uj >= prev_[i].energy_uj) {
                 delta = curr[i].energy_uj - prev_[i].energy_uj;
             } else {
+                // Energy counter wraparound
                 delta = (curr[i].max_energy_uj - prev_[i].energy_uj) + curr[i].energy_uj;
             }
         }
@@ -70,5 +96,5 @@ void RaplShellMonitor::monitor(const char* timestamp) {
     }
 
     printf("\n");
-    prev_ = std::move(curr);
+    prev_ = std::move(curr); // Update for next cycle
 }
