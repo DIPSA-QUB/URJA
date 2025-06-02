@@ -1,3 +1,6 @@
 Doxyfile
 html/
 build/
+.firebase/
+.firebaserc
+firebase.json
