@@ -48,7 +48,7 @@ void ThreadInfo::updateCounters() {
     }
 }
 
-void ThreadInfo::printDelta(const char* timestamp, const char* tag) {
+/*void ThreadInfo::printDelta(const char* timestamp, LogTag tag) {
     const std::vector<int>& events = PapiEventRegistry::getInstance().getEvents();
     const std::vector<std::string>& names = PapiEventRegistry::getInstance().getEventNames();
     std::vector<long long> curr(events.size());
@@ -60,9 +60,24 @@ void ThreadInfo::printDelta(const char* timestamp, const char* tag) {
         }
         LoggerManager::getInstance().logParams(timestamp, tag, tid_, pthreadId_, counters);
     }
+}*/
+
+void ThreadInfo::printDelta(const char* timestamp, LogTag tag) {
+    const std::vector<int>& events = PapiEventRegistry::getInstance().getEvents();
+    const std::vector<std::string>& names = PapiEventRegistry::getInstance().getEventNames();
+
+    if (PAPI_accum(eventSet_, prevValues_.data()) == PAPI_OK) {
+        std::vector<std::pair<std::string, long long>> counters;
+        for (size_t i = 0; i < events.size(); ++i) {
+            counters.emplace_back(names[i], prevValues_[i]);
+            // Note: prevValues_ now contains delta; reset to 0 for next cycle
+            prevValues_[i] = 0;
+        }
+        LoggerManager::getInstance().logParams(timestamp, tag, tid_, pthreadId_, counters);
+    }
 }
 
-void ThreadInfo::printCumulative(const char* timestamp, const char* tag) {
+void ThreadInfo::printCumulative(const char* timestamp, LogTag tag) {
     const std::vector<int>& events = PapiEventRegistry::getInstance().getEvents();
     const std::vector<std::string>& names = PapiEventRegistry::getInstance().getEventNames();
     std::vector<long long> curr(events.size());
@@ -71,7 +86,7 @@ void ThreadInfo::printCumulative(const char* timestamp, const char* tag) {
         for (size_t i = 0; i < events.size(); ++i) {
             counters.emplace_back(names[i], curr[i]);
         }
-        LoggerManager::getInstance().logParams(timestamp, "PAPI-CUMULATIVE][" + std::string(tag), tid_, pthreadId_, counters);
+        LoggerManager::getInstance().logParams(timestamp, LogTag::CUMULATIVE, tag, tid_, pthreadId_, counters);
     }
 }
 

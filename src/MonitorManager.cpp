@@ -19,9 +19,9 @@ static void initSleepDuration() {
         int msec = std::atoi(env);
         if (msec > 0) {
             intervalMs = msec;
-            LoggerManager::getInstance().logLine("INIT","DEBUG", "Monitoring interval set to " + std::to_string(msec) +" ms.");
+            LoggerManager::getInstance().logLine("INIT", LogTag::DEBUG, "Monitoring interval set to " + std::to_string(msec) +" ms.");
         } else {
-            LoggerManager::getInstance().logLine("INIT","ERROR", std::string("Invalid URJA_INTERVAL_MS: ") + env);
+            LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, std::string("Invalid URJA_INTERVAL_MS: ") + env);
         }
     }
 }
@@ -69,6 +69,5 @@ void MonitorManager::start() {
 
 void MonitorManager::stop() {
     keepRunning = 0;
-    std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
-    PapiManager::getInstance().printFinalSummary();
+    PapiManager::getInstance().finalize();
 }

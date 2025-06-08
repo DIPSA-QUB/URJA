@@ -3,13 +3,15 @@
 #include <algorithm>
 #include <cstdio>
 #include <chrono>
+#include <unordered_map>
+#include <memory>
+#include <shared_mutex>
+
 
 static pthread_t monitorThreadId_;
 static pthread_t mainThreadId_;
 
-PapiManager::PapiManager() {
-    pthread_mutex_init(&mutex_, nullptr);
-}
+PapiManager::PapiManager() {}
 
 PapiManager& PapiManager::getInstance() {
     static PapiManager instance;
@@ -23,56 +25,74 @@ void PapiManager::setMonitorThread(pthread_t id) {
 void PapiManager::initialize() {
     mainThreadId_ = pthread_self();
     if (PAPI_library_init(PAPI_VER_CURRENT) != PAPI_VER_CURRENT)
-        LoggerManager::getInstance().logLine("INIT","ERROR", "PAPI initialization failed.");
+        LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, "PAPI initialization failed.");
 }
 
 void PapiManager::registerThread(pid_t tid, pthread_t ptid) {
-    pthread_mutex_lock(&mutex_);
-    for (const std::unique_ptr<ThreadInfo>& t : threads_)
-        if (t->getTid() == tid) {
-            pthread_mutex_unlock(&mutex_);
-            return;
-        }
-
-    threads_.emplace_back(std::make_unique<ThreadInfo>(tid, ptid));
-    pthread_mutex_unlock(&mutex_);
+    std::unique_lock lock(threadsMutex_);
+    if (threads_.find(tid) == threads_.end()) {
+        threads_[tid] = std::make_unique<ThreadInfo>(tid, ptid);
+    }
 }
 
-void PapiManager::markThreadFinished(pthread_t ptid) {
-    pthread_mutex_lock(&mutex_);
-    for (const std::unique_ptr<ThreadInfo>& t : threads_)
-        if (pthread_equal(t->getPthreadId(), ptid)) {
-            t->markFinished();
-            break;
-        }
-    pthread_mutex_unlock(&mutex_);
+void PapiManager::markThreadFinished(pid_t tid) {
+    std::unique_lock lock(threadsMutex_);
+    auto it = threads_.find(tid);
+    if (it != threads_.end()) {
+        it->second->markFinished();
+    } else {
+        LoggerManager::getInstance().logLine("THREAD", LogTag::ERROR, "Tried to mark unknown TID as finished.");
+        return;
+    }
 }
 
 void PapiManager::updateAllThreads(const char* timestamp) {
-    pthread_mutex_lock(&mutex_);
-    for (const std::unique_ptr<ThreadInfo>& t : threads_)
-        if (!t->isFinished()) {
-            const char* tag =
-                pthread_equal(t->getPthreadId(), monitorThreadId_) ? "[MONITOR]" :
-                pthread_equal(t->getPthreadId(), mainThreadId_)     ? "[MAIN]" :
-                                                                       "[THREAD]";
-            t->printDelta(timestamp, tag);
+    std::shared_lock lock(threadsMutex_);
+    for (const auto& [tid, thread] : threads_) {
+        if (!thread->isFinished()) {
+            LogTag tag =
+                pthread_equal(thread->getPthreadId(), monitorThreadId_) ? LogTag::MONITOR :
+                pthread_equal(thread->getPthreadId(), mainThreadId_)     ? LogTag::MAIN :
+                                                                            LogTag::THREAD;
+            thread->printDelta(timestamp, tag);
         }
-    pthread_mutex_unlock(&mutex_);
+    }
 }
 
-void PapiManager::printFinalSummary() {
+void PapiManager::printThreadSummary(pid_t tid) {
+    std::shared_lock lock(threadsMutex_);
+    auto it = threads_.find(tid);
+    if (it != threads_.end()) {
+        std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
+        std::chrono::milliseconds millis = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+        std::string ts = std::to_string(millis.count());
+
+        LogTag tag =
+            pthread_equal(it->second->getPthreadId(), monitorThreadId_) ? LogTag::MONITOR :
+            pthread_equal(it->second->getPthreadId(), mainThreadId_)     ? LogTag::MAIN :
+                                                                            LogTag::THREAD;
+
+        it->second->printCumulative(ts.c_str(), tag);
+    }
+}
+
+void PapiManager::finalize() {
+    std::shared_lock lock(threadsMutex_);
+
     std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
     std::chrono::milliseconds millis = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
     std::string ts = std::to_string(millis.count());
 
-    pthread_mutex_lock(&mutex_);
-    for (const std::unique_ptr<ThreadInfo>& t : threads_) {
-            const char* tag =
-                pthread_equal(t->getPthreadId(), monitorThreadId_) ? "[MONITOR]" :
-                pthread_equal(t->getPthreadId(), mainThreadId_)     ? "[MAIN]" :
-                                                                       "[THREAD]";
-            t->printCumulative(ts.c_str(), tag);
-    }
-    pthread_mutex_unlock(&mutex_);
+    auto printIfPresent = [&](pthread_t ptid, LogTag tag) {
+        for (const auto& [tid, thread] : threads_) {
+            if (pthread_equal(thread->getPthreadId(), ptid)) {
+                thread->printCumulative(ts.c_str(), tag);
+                break;
+            }
+        }
+    };
+
+    printIfPresent(mainThreadId_, LogTag::MAIN);
+    printIfPresent(monitorThreadId_, LogTag::MONITOR);
 }
+

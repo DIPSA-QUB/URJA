@@ -17,17 +17,17 @@ void PapiEventRegistry::initialize() {
 
     const char* env = std::getenv("URJA_PAPI_EVENTS");
     if (!env) {
-        LoggerManager::getInstance().logLine("INIT", "ERROR", "URJA_PAPI_EVENTS not set.");
+        LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, "URJA_PAPI_EVENTS not set.");
         std::exit(1);
     }
 
     // Initialize the PAPI library
     int ret = PAPI_library_init(PAPI_VER_CURRENT);
     if (ret != PAPI_VER_CURRENT && ret > 0) {
-        LoggerManager::getInstance().logLine("INIT", "ERROR", "PAPI library version mismatch.");
+        LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, "PAPI library version mismatch.");
         exit(1);
     } else if (ret < 0) {
-        LoggerManager::getInstance().logLine("INIT", "ERROR", "PAPI initialization failed.");
+        LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, "PAPI initialization failed.");
         exit(1);
     }
 
@@ -40,16 +40,16 @@ void PapiEventRegistry::initialize() {
             events_.push_back(code);
             eventNames_.emplace_back(token);
         } else {
-            LoggerManager::getInstance().logLine("INIT", "DEBUG", "Invalid PAPI event name: " + token);
+            LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, "Invalid PAPI event name: " + token);
         }
     }
 
     if (events_.empty()) {
-        LoggerManager::getInstance().logLine("INIT", "ERROR", "No valid PAPI events found.");
+        LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, "No valid PAPI events found.");
         std::exit(1);
     }
 
-    LoggerManager::getInstance().logLine("INIT", "DEBUG", "PAPI events loaded.");
+    LoggerManager::getInstance().logLine("INIT", LogTag::DEBUG, "PAPI events loaded.");
     initialized_ = true;
 }
 

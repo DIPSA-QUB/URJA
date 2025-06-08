@@ -20,7 +20,7 @@ void EnergyMonitor::initialize() {
         std::unique_ptr<RaplShellMonitor> shell = std::make_unique<RaplShellMonitor>();
         shell->initialize();
         backend_ = std::move(shell);
-        LoggerManager::getInstance().logLine("INIT", "DEBUG", "Using RAPL shell backend.");
+        LoggerManager::getInstance().logLine("INIT", LogTag::DEBUG, "Using RAPL shell backend.");
         return;
 
     } else if (backend && std::strcmp(backend, "sysfs") == 0) {
@@ -29,14 +29,14 @@ void EnergyMonitor::initialize() {
 
         if (sysfs->domainCount() > 0) {
             backend_ = std::move(sysfs);
-            LoggerManager::getInstance().logLine("INIT", "DEBUG", "Using RAPL sysfs backend.");
+            LoggerManager::getInstance().logLine("INIT", LogTag::DEBUG, "Using RAPL sysfs backend.");
             return;
         } else {
-            LoggerManager::getInstance().logLine("INIT", "ERROR", "Sysfs backend forced, but no RAPL domains found.");
+            LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, "Sysfs backend forced, but no RAPL domains found.");
             return;
         }
     }
-    LoggerManager::getInstance().logLine("INIT","ERROR", "No energy backend specified.");
+    LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, "No energy backend specified.");
 }
 
 void EnergyMonitor::monitor(const char* timestamp) {

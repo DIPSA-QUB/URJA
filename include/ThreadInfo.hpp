@@ -5,6 +5,7 @@
 #include <papi.h>
 #include <unistd.h>
 #include <vector>
+#include "LoggerManager.hpp"
 
 class ThreadInfo {
 public:
@@ -13,8 +14,8 @@ public:
     bool isFinished() const;
     void markFinished();
     void updateCounters();
-    void printDelta(const char* timestamp, const char* tag);
-    void printCumulative(const char* timestamp, const char* tag);
+    void printDelta(const char* timestamp, LogTag tag);
+    void printCumulative(const char* timestamp, LogTag tag);
     pthread_t getPthreadId() const;
     pid_t getTid() const;
 

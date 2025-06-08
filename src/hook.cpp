@@ -30,15 +30,11 @@ static void* thread_entry(void* arg) {
 
     pid_t tid = syscall(SYS_gettid);
 
-    using clock = std::chrono::steady_clock;
-    auto t0 = clock::now();
     PapiManager::getInstance().registerThread(tid, pthread_self());
-    auto t5 = clock::now();
-
-    std::cerr << "[URJA init timing] Total init time: "
-              << std::chrono::duration_cast<std::chrono::microseconds>(t5 - t0).count() << " µs\n";
+    
     void* result = fn(fn_arg);
-    PapiManager::getInstance().markThreadFinished(pthread_self());
+    PapiManager::getInstance().markThreadFinished(tid);
+    PapiManager::getInstance().printThreadSummary(tid);
     return result;
 }
 

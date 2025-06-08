@@ -1,3 +1,4 @@
+#include "LogTag.hpp"
 #include "LoggerManager.hpp"
 #include "StdioLogger.hpp"
 #include "FileLogger.hpp"
@@ -30,17 +31,23 @@ void LoggerManager::initialize() {
     }
 }
 
-void LoggerManager::logLine(const char* timestamp, const std::string& tag, const std::string& message) {
+void LoggerManager::logLine(const char* timestamp, LogTag tag, const std::string& message) {
     if (logger_) logger_->logLine(timestamp, tag, message);
 }
 
-void LoggerManager::logParams(const char* timestamp, const std::string& tag,
+void LoggerManager::logParams(const char* timestamp, LogTag tag,
     const std::vector<std::pair<std::string, long long>>& kvPairs) {
     if (logger_) logger_->logParams(timestamp, tag, kvPairs);
 }
 
-void LoggerManager::logParams(const char* timestamp, const std::string& tag, 
+void LoggerManager::logParams(const char* timestamp, LogTag tag,
     pid_t tid, pthread_t pthreadId,
     const std::vector<std::pair<std::string, long long>>& kvPairs) {
     if (logger_) logger_->logParams(timestamp, tag, tid, pthreadId, kvPairs);
+}
+
+void LoggerManager::logParams(const char* timestamp, LogTag tag1, LogTag tag2,
+    pid_t tid, pthread_t pthreadId,
+    const std::vector<std::pair<std::string, long long>>& kvPairs) {
+    if (logger_) logger_->logParams(timestamp, tag1, tag2, tid, pthreadId, kvPairs);
 }
