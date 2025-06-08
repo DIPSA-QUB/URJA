@@ -21,8 +21,11 @@ endif
 # Compiler and Flags
 # ========================
 CXX            := g++
-CXXFLAGS       := -Wall -O2 -fPIC -std=c++17 -I$(INCLUDE_DIR) $(PAPI_INCLUDE)
-LDFLAGS        := -shared -Wl,-rpath,$(PAPI_DIR)/lib $(PAPI_LIB)
+
+CXXFLAGS := -Wall -O3 -flto -fPIC -std=c++17 -march=native -ffast-math -pthread \
+            -I$(INCLUDE_DIR) $(PAPI_INCLUDE)
+
+LDFLAGS  := -shared -flto -Wl,-rpath,$(PAPI_DIR)/lib $(PAPI_LIB) -pthread
 
 # ========================
 # Files

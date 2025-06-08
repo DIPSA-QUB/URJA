@@ -7,17 +7,10 @@
 #include <mutex>
 #include <chrono>
 
-/// Shell command used to invoke external RAPL reading script
 #define SHELL_RAPL_CMD "sudo /var/shared/power/bin/rapl_read.sh"
 
-/// Internal flag to ensure one-time initialization
 static bool initialized = false;
 
-/**
- * @brief Initializes the shell-based RAPL monitor by reading the initial energy values.
- *
- * This method captures a baseline snapshot of energy values from the external shell script.
- */
 void RaplShellMonitor::initialize() {
     if (!initialized) {
         prev_ = parseShellOutput();
@@ -25,14 +18,6 @@ void RaplShellMonitor::initialize() {
     }
 }
 
-/**
- * @brief Parses the output of the external RAPL reading script.
- *
- * Expects lines in the format:
- * `intel-rapl... ; index ; domain ; energy_uj ; max_energy_uj`
- *
- * @return A vector of ShellDomain structs parsed from the script output.
- */
 std::vector<RaplShellMonitor::ShellDomain> RaplShellMonitor::parseShellOutput() {
     // valgrind <- use for debugging
     std::vector<ShellDomain> result;
@@ -63,15 +48,6 @@ std::vector<RaplShellMonitor::ShellDomain> RaplShellMonitor::parseShellOutput() 
     return result;
 }
 
-/**
- * @brief Logs the energy usage delta for each domain by comparing current and previous readings.
- *
- * Calculates energy consumption since the last call, accounting for wraparounds.
- * Output format:
- * `[URJA][RAPL][<timestamp]> PACKAGE_0: <uj>, DRAM_0: <uj>, ...`
- *
- * @param timestamp String timestamp used in logging
- */
 void RaplShellMonitor::monitor(const char* timestamp) {
     auto curr = parseShellOutput();
     printf("[URJA][RAPL][%s]> ", timestamp);

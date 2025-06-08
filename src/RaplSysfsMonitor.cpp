@@ -7,13 +7,6 @@
 #include <cctype>
 #include <algorithm>
 
-
-/**
- * @brief Initializes the sysfs-based RAPL monitor by discovering RAPL domains.
- *
- * Uses glob to find energy readout files for top-level and sub RAPL domains.
- * For each energy file found, attempts to read the domain's label from the corresponding `name` file.
- */
 void RaplSysfsMonitor::initialize() {
     glob_t gtop, gsub;
 
@@ -50,11 +43,6 @@ void RaplSysfsMonitor::initialize() {
     globfree(&gsub);
 }
 
-/**
- * @brief Monitors and logs energy consumption deltas since the last read for all discovered domains.
- *
- * @param timestamp String representing the current timestamp in milliseconds.
- */
 void RaplSysfsMonitor::monitor(const char* timestamp) {
     printf("[URJA][RAPL][%s]> ", timestamp);
     for (size_t i = 0; i < domains_.size(); ++i) {
@@ -68,12 +56,6 @@ void RaplSysfsMonitor::monitor(const char* timestamp) {
     printf("\n");
 }
 
-/**
- * @brief Reads an energy value from the given sysfs path.
- *
- * @param path Full path to the `energy_uj` file.
- * @return The energy value in microjoules, or -1 on failure.
- */
 long long RaplSysfsMonitor::readEnergy(const std::string& path) {
     char buf[32];
     int fd = open(path.c_str(), O_RDONLY);
@@ -85,18 +67,6 @@ long long RaplSysfsMonitor::readEnergy(const std::string& path) {
     return atoll(buf);
 }
 
-/**
- * @brief Formats a sysfs domain label by normalizing and appending RAPL ID.
- *
- * Example:
- * - Input label: "package-0"
- * - Sysfs path: "intel-rapl:0/energy_uj"
- * - Output: "INTEL-RAPL-0-PACKAGE"
- *
- * @param label Raw label string from the domain `name` file.
- * @param path Full sysfs path to the domain's energy file.
- * @return A formatted and normalized label suitable for output logging.
- */
 std::string RaplSysfsMonitor::formatLabel(const std::string& label, const std::string& path) {
     size_t idx = path.find("intel-rapl:");
     if (idx == std::string::npos) return label;
