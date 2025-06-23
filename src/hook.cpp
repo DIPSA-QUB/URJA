@@ -33,8 +33,8 @@ static void* thread_entry(void* arg) {
     PapiManager::getInstance().registerThread(tid, pthread_self());
     
     void* result = fn(fn_arg);
+    printf("HELLO\n");
     PapiManager::getInstance().markThreadFinished(tid);
-    PapiManager::getInstance().printThreadSummary(tid);
     return result;
 }
 
