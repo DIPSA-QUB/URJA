@@ -16,20 +16,10 @@ URJA is a lightweight dynamic monitoring library designed to log per-thread hard
 
 ## Installation
 
-### Set appropriate environment variables
+### Install PAPI and point to it
 
 ```bash
 export PAPI_DIR=/path/to/papi/
-export URJA_PAPI_EVENTS=PAPI_TOT_CYC,PAPI_TOT_INS,PAPI_L2_DCM,PAPI_TLB_DM
-export URJA_INTERVAL_MS=1000         # Monitoring interval in milliseconds
-export URJA_LOGGER=stdio             # Options: stdio, file
-export URJA_LOG_FILE=/tmp/urja.log   # If using URJA_LOGGER=file
-```
-
-(Optionally) To profile energy consumption -
-
-```bash
-export URJA_ENERGY_BACKEND=sysfs     # Options: sysfs, shell
 ```
 
 ### Build the shared library
@@ -38,7 +28,24 @@ export URJA_ENERGY_BACKEND=sysfs     # Options: sysfs, shell
 make
 ```
 
-## Usage
+## Running
+
+### Set appropriate environment variables
+
+```bash
+export URJA_PAPI_EVENTS=PAPI_TOT_CYC,PAPI_TOT_INS,PAPI_L2_DCM,PAPI_TLB_DM
+export URJA_INTERVAL_MS=1000         # Monitoring interval in milliseconds
+export URJA_LOGGER=stdio             # Options: stdio, file
+export URJA_LOG_FILE=/tmp/urja.log   # If using URJA_LOGGER=file
+```
+
+(**Optionally**) To profile energy consumption -
+
+```bash
+export URJA_ENERGY_BACKEND=sysfs     # Options: sysfs, shell
+```
+
+Then run the application using -
 
 ```bash
 LD_PRELOAD=build/bin/liburja.so /path/to/your_app
