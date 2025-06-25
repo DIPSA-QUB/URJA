@@ -51,20 +51,6 @@ void ThreadInfo::updateCounters() {
 void ThreadInfo::printDelta(const char* timestamp, LogTag tag) {
     const std::vector<int>& events = PapiEventRegistry::getInstance().getEvents();
     const std::vector<std::string>& names = PapiEventRegistry::getInstance().getEventNames();
-    std::vector<long long> curr(events.size());
-    if (PAPI_read(eventSet_, curr.data()) == PAPI_OK) {
-        std::vector<std::pair<std::string, long long>> counters;
-        for (size_t i = 0; i < events.size(); ++i) {
-            counters.emplace_back(names[i], curr[i] - prevValues_[i]);
-            prevValues_[i] = curr[i];
-        }
-        LoggerManager::getInstance().logParams(timestamp, tag, tid_, pthreadId_, counters);
-    }
-}
-
-/*void ThreadInfo::printDelta(const char* timestamp, LogTag tag) {
-    const std::vector<int>& events = PapiEventRegistry::getInstance().getEvents();
-    const std::vector<std::string>& names = PapiEventRegistry::getInstance().getEventNames();
 
     if (PAPI_accum(eventSet_, prevValues_.data()) == PAPI_OK) {
         std::vector<std::pair<std::string, long long>> counters;
@@ -74,19 +60,6 @@ void ThreadInfo::printDelta(const char* timestamp, LogTag tag) {
             prevValues_[i] = 0;
         }
         LoggerManager::getInstance().logParams(timestamp, tag, tid_, pthreadId_, counters);
-    }
-}*/
-
-void ThreadInfo::printCumulative(const char* timestamp, LogTag tag) {
-    const std::vector<int>& events = PapiEventRegistry::getInstance().getEvents();
-    const std::vector<std::string>& names = PapiEventRegistry::getInstance().getEventNames();
-    std::vector<long long> curr(events.size());
-    std::vector<std::pair<std::string, long long>> counters;
-    if (PAPI_read(eventSet_, curr.data()) == PAPI_OK) {
-        for (size_t i = 0; i < events.size(); ++i) {
-            counters.emplace_back(names[i], curr[i]);
-        }
-        LoggerManager::getInstance().logParams(timestamp, LogTag::CUMULATIVE, tag, tid_, pthreadId_, counters);
     }
 }
 

@@ -1,4 +1,5 @@
 #include "RaplSysfsMonitor.hpp"
+#include "LoggerManager.hpp"
 #include <glob.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -10,20 +11,23 @@
 void RaplSysfsMonitor::initialize() {
     glob_t gtop, gsub;
 
-    // Match energy files for top-level and sub-domains
-    glob("/sys/devices/virtual/powercap/intel-rapl/intel-rapl:*/energy_uj", GLOB_NOSORT, nullptr, &gtop);
-    glob("/sys/devices/virtual/powercap/intel-rapl/intel-rapl:*/intel-rapl:*:*/energy_uj", GLOB_NOSORT, nullptr, &gsub);
+    glob("/sys/class/powercap/intel-rapl:*/energy_uj", GLOB_NOSORT, nullptr, &gtop);
+    glob("/sys/class/powercap/intel-rapl:*/intel-rapl:*:*/energy_uj", GLOB_NOSORT, nullptr, &gsub);
 
     auto process = [this](glob_t& g) {
         for (size_t i = 0; i < g.gl_pathc; ++i) {
             std::string energyPath(g.gl_pathv[i]);
-            long long energy = readEnergy(energyPath);
-            if (energy == -1) continue;
+            uint64_t energy = readEnergy(energyPath);
+            if (energy == static_cast<uint64_t>(-1)) continue;
 
-            // Attempt to read the domain label
-            std::string namePath = energyPath.substr(0, energyPath.find_last_of('/')) + "/name";
-            FILE* f = fopen(namePath.c_str(), "r");
+            std::string basePath = energyPath.substr(0, energyPath.find_last_of('/'));
+            std::string namePath = basePath + "/name";
+            std::string maxPath  = basePath + "/max_energy_range_uj";
+
             std::string label = "unknown";
+
+            FILE* f = fopen(namePath.c_str(), "r");
+
             if (f) {
                 char buf[256];
                 if (fgets(buf, sizeof(buf), f)) {
@@ -33,7 +37,16 @@ void RaplSysfsMonitor::initialize() {
                 fclose(f);
             }
 
-            domains_.push_back({formatLabel(label, energyPath), energyPath, energy});
+            uint64_t max_value = 0;
+            f = fopen(maxPath.c_str(), "r");
+            if (f) {
+                char buf[64];
+                if (fgets(buf, sizeof(buf), f)) {
+                    max_value = strtoull(buf, nullptr, 10);
+                }
+                fclose(f);
+            }
+            domains_.push_back({formatLabel(label, energyPath), energyPath, energy, max_value});
         }
     };
 
@@ -41,30 +54,44 @@ void RaplSysfsMonitor::initialize() {
     process(gsub);
     globfree(&gtop);
     globfree(&gsub);
+
+    LoggerManager::getInstance().logLine("INIT", LogTag::DEBUG, 
+        "Loaded " + std::to_string(domains_.size()) + " RAPL domains.");
 }
 
 void RaplSysfsMonitor::monitor(const char* timestamp) {
-    printf("[URJA][RAPL][%s]> ", timestamp);
+    std::vector<std::pair<std::string, long long>> energyReadings;
+
     for (size_t i = 0; i < domains_.size(); ++i) {
-        long long now = readEnergy(domains_[i].path);
-        if (now == -1) continue;
-        long long delta = now - domains_[i].last_value;
-        printf("%s: %lld", domains_[i].label.c_str(), delta);
-        if (i < domains_.size() - 1) printf(", ");
+        uint64_t now = readEnergy(domains_[i].path);
+        if (now == static_cast<uint64_t>(-1)) continue;
+
+        uint64_t delta;
+        if (now >= domains_[i].last_value) {
+            delta = now - domains_[i].last_value;
+        } else if (domains_[i].max_value > 0) {
+            // Wraparound occurred
+            delta = (domains_[i].max_value - domains_[i].last_value) + now;
+        } else {
+            delta = static_cast<uint64_t>(-1); // fallback if max value not known
+        }
+
+        energyReadings.emplace_back(domains_[i].label, static_cast<long long>(delta));
         domains_[i].last_value = now;
     }
-    printf("\n");
+
+    LoggerManager::getInstance().logParams(timestamp, LogTag::ENERGY, energyReadings);
 }
 
-long long RaplSysfsMonitor::readEnergy(const std::string& path) {
+uint64_t RaplSysfsMonitor::readEnergy(const std::string& path) {
     char buf[32];
     int fd = open(path.c_str(), O_RDONLY);
-    if (fd < 0) return -1;
+    if (fd < 0) return static_cast<uint64_t>(-1);
     ssize_t n = read(fd, buf, sizeof(buf) - 1);
     close(fd);
-    if (n <= 0) return -1;
+    if (n <= 0) return static_cast<uint64_t>(-1);
     buf[n] = '\0';
-    return atoll(buf);
+    return strtoull(buf, nullptr, 10);
 }
 
 std::string RaplSysfsMonitor::formatLabel(const std::string& label, const std::string& path) {

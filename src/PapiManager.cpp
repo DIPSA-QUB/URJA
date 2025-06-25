@@ -59,25 +59,6 @@ void PapiManager::updateAllThreads(const char* timestamp) {
     }
 }
 
-
-/*void PapiManager::printThreadSummary(pid_t tid) {
-    printf("SUNNY: %d\n", tid);
-    std::shared_lock lock(threadsMutex_);
-    auto it = threads_.find(tid);
-    if (it != threads_.end()) {
-        std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
-        std::chrono::milliseconds millis = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
-        std::string ts = std::to_string(millis.count());
-
-        LogTag tag =
-            pthread_equal(it->second->getPthreadId(), monitorThreadId_) ? LogTag::MONITOR :
-            pthread_equal(it->second->getPthreadId(), mainThreadId_)     ? LogTag::MAIN :
-                                                                            LogTag::THREAD;
-
-        it->second->printCumulative(ts.c_str(), tag);
-    }
-}*/
-
 void PapiManager::finalize() {
     std::shared_lock lock(threadsMutex_);
 
@@ -85,12 +66,15 @@ void PapiManager::finalize() {
     std::chrono::milliseconds millis = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
     std::string ts = std::to_string(millis.count());
 
-    for (const auto& [tid, thread] : threads_) {
-        LogTag tag =
-            pthread_equal(thread->getPthreadId(), monitorThreadId_) ? LogTag::MONITOR :
-            pthread_equal(thread->getPthreadId(), mainThreadId_)     ? LogTag::MAIN :
-                                                                        LogTag::THREAD;
+    auto printIfPresent = [&](pthread_t ptid, LogTag tag) {
+        for (const auto& [tid, thread] : threads_) {
+            if (pthread_equal(thread->getPthreadId(), ptid)) {
+                thread->printDelta(ts.c_str(), tag);
+                break;
+            }
+        }
+    };
 
-        thread->printCumulative(ts.c_str(), tag);
-    }
+    printIfPresent(mainThreadId_, LogTag::MAIN);
+    printIfPresent(monitorThreadId_, LogTag::MONITOR);
 }

@@ -16,11 +16,12 @@ private:
     struct Domain {
         std::string label;
         std::string path;
-        long long last_value;
+        uint64_t last_value;
+        uint64_t max_value;
     };
 
     std::vector<Domain> domains_;
-    long long readEnergy(const std::string& path);
+    uint64_t readEnergy(const std::string& path);
     std::string formatLabel(const std::string& label, const std::string& path);
 };
 

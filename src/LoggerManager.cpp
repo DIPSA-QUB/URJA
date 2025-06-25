@@ -26,8 +26,8 @@ void LoggerManager::initialize() {
     } else if (mode && strcmp(mode, "stdio") == 0) {
         logger_ = std::make_unique<StdioLogger>();
     } else {
-        printf("[URJA][ERROR] URJA_LOGGER not set.\n");
-        exit(1);
+        printf("[URJA][ERROR] URJA_LOGGER not set. Using 'stdio'.\n");
+        logger_ = std::make_unique<StdioLogger>();
     }
 }
 
