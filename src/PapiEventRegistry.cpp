@@ -16,9 +16,11 @@ void PapiEventRegistry::initialize() {
     if (initialized_) return;
 
     const char* env = std::getenv("URJA_PAPI_EVENTS");
+    std::string eventsStr = env ? std::string(env) : "PAPI_TOT_CYC,PAPI_TOT_INS,PAPI_L2_DCM";
+
     if (!env) {
-        LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, "URJA_PAPI_EVENTS not set.");
-        std::exit(1);
+        LoggerManager::getInstance().logLine("INIT", LogTag::INFO,
+            "URJA_PAPI_EVENTS not set. Using default events: " + eventsStr);
     }
 
     // Initialize the PAPI library
@@ -32,7 +34,7 @@ void PapiEventRegistry::initialize() {
     }
 
     // Parse comma-separated event names
-    std::istringstream iss(env);
+    std::istringstream iss(eventsStr);
     std::string token;
     while (std::getline(iss, token, ',')) {
         int code;

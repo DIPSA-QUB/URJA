@@ -1,11 +1,13 @@
-#ifndef STDIO_LOGGER_HPP
-#define STDIO_LOGGER_HPP
+#ifndef EXPERIMENTAL_LOGGER_HPP
+#define EXPERIMENTAL_LOGGER_HPP
 
 #include "ILogger.hpp"
 #include "LoggerManager.hpp"
 
-class StdioLogger : public ILogger {
+class ExperimentalLogger : public ILogger {
 public:
+    ExperimentalLogger();
+    
     void logLine(const char* timestamp, const LogTag tag, const std::string& message) override;
 
     void logParams(const char* timestamp, const LogTag tag,

@@ -2,6 +2,7 @@
 #include "LoggerManager.hpp"
 #include "StdioLogger.hpp"
 #include "FileLogger.hpp"
+#include "ExperimentalLogger.hpp"
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -25,6 +26,8 @@ void LoggerManager::initialize() {
         }
     } else if (mode && strcmp(mode, "stdio") == 0) {
         logger_ = std::make_unique<StdioLogger>();
+    } else if (mode && strcmp(mode, "experimental") == 0) {
+        logger_ = std::make_unique<ExperimentalLogger>();
     } else {
         printf("[URJA][ERROR] URJA_LOGGER not set. Using 'stdio'.\n");
         logger_ = std::make_unique<StdioLogger>();

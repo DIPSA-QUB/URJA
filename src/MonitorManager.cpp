@@ -20,10 +20,13 @@ static void initSleepDuration() {
         if (msec > 0) {
             intervalMs = msec;
             LoggerManager::getInstance().logLine("INIT", LogTag::DEBUG, "Monitoring interval set to " + std::to_string(msec) +" ms.");
+            return;
         } else {
             LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, std::string("Invalid URJA_INTERVAL_MS: ") + env);
         }
     }
+    intervalMs = 500;
+    LoggerManager::getInstance().logLine("INIT", LogTag::INFO, "URJA_INTERVAL_MS not set or invalid. Using default: 500 ms.");
 }
 
 void* MonitorManager::monitorLoop(void*) {

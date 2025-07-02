@@ -7,7 +7,7 @@
 #include <mutex>
 #include <chrono>
 
-#define SHELL_RAPL_CMD "sudo /var/shared/power/bin/rapl_read.sh"
+#define SHELL_RAPL_CMD "env -u LD_PRELOAD sudo /var/shared/power/bin/rapl_read.sh"
 
 static bool initialized = false;
 
