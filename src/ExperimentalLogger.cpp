@@ -33,7 +33,7 @@ void ExperimentalLogger::logParams(const char* timestamp, LogTag tag,
 
     if (l2_dcm >= 0 && tot_ins > 0) {
         double ratio = static_cast<double>(l2_dcm) / static_cast<double>(tot_ins);
-        std::string freq = (ratio < 0.005) ? "2.10" : "1.20";
+        std::string freq = (ratio < 0.005) ? "4.0" : "1.20";
         static std::string lastFreq = ""; // stores last applied frequency
 
         if (lastFreq != freq) {
@@ -43,7 +43,7 @@ void ExperimentalLogger::logParams(const char* timestamp, LogTag tag,
             printf("[URJA][%s][MAIN][%d|%lu]> TOT_INS: %lld, L2_DCM: %lld, RATIO: %.5f, STATUS: Changed, FREQ: %sGHz\n",
                    timestamp, tid, (unsigned long)pthreadId, tot_ins, l2_dcm, ratio, freq.c_str());
         } else {
-            printf("[URJA][%s][MAIN][%d|%lu]> TOT_INS: %lld, L2_DCM: %lld, RATIO: %.5f, STATUS: Unchanged, FREQ%sGHz\n",
+            printf("[URJA][%s][MAIN][%d|%lu]> TOT_INS: %lld, L2_DCM: %lld, RATIO: %.5f, STATUS: Unchanged, FREQ: %sGHz\n",
                    timestamp, tid, (unsigned long)pthreadId, tot_ins, l2_dcm, ratio, freq.c_str());
         }
     }

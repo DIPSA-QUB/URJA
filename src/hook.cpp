@@ -50,6 +50,9 @@ extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 }
 
 __attribute__((constructor)) static void init_urja() {
+    //const char* skip = std::getenv("URJA_SKIP_INIT");
+    //if (skip && std::string(skip) == "1") return;
+    unsetenv("LD_PRELOAD");
     LoggerManager::getInstance().initialize();
     pid_t tid = syscall(SYS_gettid);
     PapiManager::getInstance().initialize();

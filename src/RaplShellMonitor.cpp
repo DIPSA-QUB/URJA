@@ -1,76 +1,89 @@
 #include "RaplShellMonitor.hpp"
+#include "LoggerManager.hpp"
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
-#include <cctype>
-#include <algorithm>
-#include <mutex>
-#include <chrono>
+#include <string>
+#include <vector>
+#include <sstream>
+#include <algorithm>  // ✅ needed for std::min with initializer list
 
-#define SHELL_RAPL_CMD "env -u LD_PRELOAD sudo /var/shared/power/bin/rapl_read.sh"
+#define CMD_NAME  "sudo /var/shared/power/bin/rapl_read.2.sh -n"
+#define CMD_MAX   "sudo /var/shared/power/bin/rapl_read.2.sh -m"
+#define CMD_INST  "sudo /var/shared/power/bin/rapl_read.2.sh -i"
 
-static bool initialized = false;
 
 void RaplShellMonitor::initialize() {
-    if (!initialized) {
-        prev_ = parseShellOutput();
-        initialized = true;
-    }
-}
+    std::vector<std::string> labels = runCommandLines(CMD_NAME);
+    std::vector<std::string> maxLines = runCommandLines(CMD_MAX);
+    std::vector<std::string> instLines = runCommandLines(CMD_INST);
 
-std::vector<RaplShellMonitor::ShellDomain> RaplShellMonitor::parseShellOutput() {
-    // valgrind <- use for debugging
-    std::vector<ShellDomain> result;
-    FILE* fp = popen(SHELL_RAPL_CMD, "r");
-    if (!fp) {
-        perror("popen");
-        return result;
+    if (labels.empty() || maxLines.empty() || instLines.empty()) {
+        LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, "Failed to initialize RaplShellMonitor: Incomplete data.");
+        return;
     }
 
-    char line[256];
-    while (fgets(line, sizeof(line), fp)) {
-        // Skip lines not starting with "intel-rapl"
-        if (strncmp(line, "intel-rapl", 10) != 0) continue;
-        char name[64], index[16], domain[64];
-        unsigned long long energy, max_energy;
-        if (sscanf(line, " %[^; \t\n] ; %[^; \t\n] ; %[^; \t\n] ; %llu ; %llu",
-                   name, index, domain, &energy, &max_energy) == 5) {
-            result.push_back({index, domain, energy, max_energy});
+    // ✅ Now valid in C++17
+    size_t count = std::min({labels.size(), maxLines.size(), instLines.size()});
+
+    domains_.clear();
+    for (size_t i = 0; i < count; ++i) {
+        Domain d;
+        d.label = labels[i];
+        try {
+            d.maxValue = std::stoull(maxLines[i]);
+            d.prevValue = std::stoull(instLines[i]);
+        } catch (...) {
+            d.maxValue = 0;
+            d.prevValue = 0;
         }
+        domains_.emplace_back(std::move(d));
     }
 
-    int status = pclose(fp); // Always close the process
-    if (status == -1) {
-        perror("pclose");
-    } else if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-        fprintf(stderr, "[URJA][ERROR] Script exited with status %d\n", WEXITSTATUS(status));
-    }
-    return result;
+    LoggerManager::getInstance().logLine("INIT", LogTag::DEBUG,
+        "RaplShellMonitor initialized with " + std::to_string(domains_.size()) + " domains.");
 }
 
 void RaplShellMonitor::monitor(const char* timestamp) {
-    auto curr = parseShellOutput();
-    printf("[URJA][RAPL][%s]> ", timestamp);
+    std::vector<std::string> instLines = runCommandLines(CMD_INST);
+    std::vector<std::pair<std::string, long long>> deltas;
 
-    for (size_t i = 0; i < curr.size(); ++i) {
-        unsigned long long delta = 0;
-        if (i < prev_.size()) {
-            if (curr[i].energy_uj >= prev_[i].energy_uj) {
-                delta = curr[i].energy_uj - prev_[i].energy_uj;
-            } else {
-                // Energy counter wraparound
-                delta = (curr[i].max_energy_uj - prev_[i].energy_uj) + curr[i].energy_uj;
-            }
+    size_t count = std::min(domains_.size(), instLines.size());
+    for (size_t i = 0; i < count; ++i) {
+        uint64_t curr = 0;
+        try {
+            curr = std::stoull(instLines[i]);
+        } catch (...) {
+            continue;
         }
 
-        std::string label = curr[i].domain + "_" + curr[i].index;
-        std::replace(label.begin(), label.end(), ':', '-');
-        std::transform(label.begin(), label.end(), label.begin(), ::toupper);
+        uint64_t delta;
+        if (curr >= domains_[i].prevValue) {
+            delta = curr - domains_[i].prevValue;
+        } else {
+            delta = (domains_[i].maxValue > 0)
+                    ? (domains_[i].maxValue - domains_[i].prevValue) + curr
+                    : 0;
+        }
 
-        printf("%s: %llu", label.c_str(), delta);
-        if (i < curr.size() - 1) printf(", ");
+        deltas.emplace_back(domains_[i].label, static_cast<long long>(delta));
+        domains_[i].prevValue = curr;
     }
 
-    printf("\n");
-    prev_ = std::move(curr); // Update for next cycle
+    LoggerManager::getInstance().logParams(timestamp, LogTag::ENERGY, deltas);
+}
+
+std::vector<std::string> RaplShellMonitor::runCommandLines(const std::string& cmd) {
+    std::vector<std::string> result;
+    FILE* fp = popen(cmd.c_str(), "r");
+    if (!fp) return result;
+
+    char buffer[256];
+    while (fgets(buffer, sizeof(buffer), fp)) {
+        std::string line(buffer);
+        line.erase(line.find_last_not_of(" \t\n\r") + 1); // trim
+        if (!line.empty()) result.push_back(line);
+    }
+
+    pclose(fp);
+    return result;
 }

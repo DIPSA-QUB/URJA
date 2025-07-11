@@ -2,9 +2,9 @@
 #define RAPL_SHELL_MONITOR_HPP
 
 #include "IEnergyBackend.hpp"
-#include "EnergyMonitor.hpp"
 #include <string>
 #include <vector>
+#include <cstdint>
 
 class RaplShellMonitor : public IEnergyBackend {
 public:
@@ -12,15 +12,15 @@ public:
     void monitor(const char* timestamp) override;
 
 private:
-    struct ShellDomain {
-        std::string index;
-        std::string domain;
-        unsigned long long energy_uj;
-        unsigned long long max_energy_uj;
+    struct Domain {
+        std::string label;
+        uint64_t maxValue;
+        uint64_t prevValue;
     };
 
-    std::vector<ShellDomain> prev_;
-    std::vector<ShellDomain> parseShellOutput();
+    std::vector<Domain> domains_;
+
+    std::vector<std::string> runCommandLines(const std::string& cmd);
 };
 
 #endif
