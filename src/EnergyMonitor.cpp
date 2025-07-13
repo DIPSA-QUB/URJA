@@ -1,6 +1,7 @@
 #include "EnergyMonitor.hpp"
 #include "RaplSysfsMonitor.hpp"
 #include "RaplShellMonitor.hpp"
+#include "HwmonMonitor.hpp"
 #include "LoggerManager.hpp"
 #include <cstdio>
 #include <cstring>
@@ -33,6 +34,18 @@ void EnergyMonitor::initialize() {
             return;
         } else {
             LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, "Sysfs backend forced, but no RAPL domains found.");
+            return;
+        }
+    } else if (backend && std::strcmp(backend, "hwmon") == 0) {
+        std::unique_ptr<HwmonMonitor> hwmon = std::make_unique<HwmonMonitor>();
+        hwmon->initialize();
+
+        if (hwmon->domainCount() > 0) {
+            backend_ = std::move(hwmon);
+            LoggerManager::getInstance().logLine("INIT", LogTag::DEBUG, "Using HWMON backend.");
+            return;
+        } else {
+            LoggerManager::getInstance().logLine("INIT", LogTag::ERROR, "HWMON backend forced, but no domains found.");
             return;
         }
     }
