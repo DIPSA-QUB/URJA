@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
-#include <algorithm>  // ✅ needed for std::min with initializer list
+#include <algorithm>
 
 #define CMD_NAME  "sudo /var/shared/power/bin/rapl_read.2.sh -n"
 #define CMD_MAX   "sudo /var/shared/power/bin/rapl_read.2.sh -m"
@@ -22,7 +22,6 @@ void RaplShellMonitor::initialize() {
         return;
     }
 
-    // ✅ Now valid in C++17
     size_t count = std::min({labels.size(), maxLines.size(), instLines.size()});
 
     domains_.clear();

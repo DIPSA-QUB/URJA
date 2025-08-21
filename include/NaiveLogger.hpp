@@ -4,9 +4,9 @@
 #include "ILogger.hpp"
 #include "LoggerManager.hpp"
 
-class ExperimentalLogger : public ILogger {
+class NaiveLogger : public ILogger {
 public:
-    ExperimentalLogger();
+    NaiveLogger();
     
     void logLine(const char* timestamp, const LogTag tag, const std::string& message) override;
 
@@ -20,6 +20,8 @@ public:
     void logParams(const char* timestamp, const LogTag tag1, const LogTag tag2,
         pid_t tid, pthread_t pthreadId,
         const std::vector<std::pair<std::string, long long>>& kvPairs) override;   
+
+    void process() override;
 };
 
 #endif

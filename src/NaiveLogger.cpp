@@ -1,17 +1,17 @@
 #include "LoggerManager.hpp"
-#include "ExperimentalLogger.hpp"
+#include "NaiveLogger.hpp"
 #include "PowerUtils.hpp"
 #include <cstdio>
 
-ExperimentalLogger::ExperimentalLogger() {
+NaiveLogger::NaiveLogger() {
     PowerUtils::setGovernor("userspace");
 }
 
-void ExperimentalLogger::logLine(const char* timestamp, LogTag tag, const std::string& message) {
+void NaiveLogger::logLine(const char* timestamp, LogTag tag, const std::string& message) {
     printf("[URJA][%s][%s]> %s\n", timestamp, toString(tag), message.c_str());
 }
 
-void ExperimentalLogger::logParams(const char* timestamp, LogTag tag, const std::vector<std::pair<std::string, long long>>& kvPairs) {
+void NaiveLogger::logParams(const char* timestamp, LogTag tag, const std::vector<std::pair<std::string, long long>>& kvPairs) {
     printf("[URJA][%s][%s]> ", timestamp, toString(tag));
     for (size_t i = 0; i < kvPairs.size(); ++i) {
         printf("%s: %lld", kvPairs[i].first.c_str(), kvPairs[i].second);
@@ -20,7 +20,7 @@ void ExperimentalLogger::logParams(const char* timestamp, LogTag tag, const std:
     printf("\n");
 }
 
-void ExperimentalLogger::logParams(const char* timestamp, LogTag tag,
+void NaiveLogger::logParams(const char* timestamp, LogTag tag,
     pid_t tid, pthread_t pthreadId, const std::vector<std::pair<std::string, long long>>& kvPairs) {
     if(tag != LogTag::MAIN) return;
 
@@ -49,5 +49,9 @@ void ExperimentalLogger::logParams(const char* timestamp, LogTag tag,
     }
 }
 
-void ExperimentalLogger::logParams(const char* timestamp, LogTag tag1, LogTag tag2,
+void NaiveLogger::logParams(const char* timestamp, LogTag tag1, LogTag tag2,
     pid_t tid, pthread_t pthreadId, const std::vector<std::pair<std::string, long long>>& kvPairs) {}
+
+void NaiveLogger::process() {
+    
+}

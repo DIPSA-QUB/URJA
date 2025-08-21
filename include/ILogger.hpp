@@ -21,6 +21,10 @@ public:
     virtual void logParams(const char* timestamp, LogTag tag1, LogTag tag2,
         pid_t tid, pthread_t pthreadId,
         const std::vector<std::pair<std::string, long long>>& kvPairs) = 0;
+
+    virtual void process() {
+        // Default blank implementation
+    }
 };
 
 #endif

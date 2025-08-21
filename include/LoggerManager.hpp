@@ -18,6 +18,7 @@ public:
     void logParams(const char* timestamp, LogTag tag1, LogTag tag2,
         pid_t tid, pthread_t pthreadId,
         const std::vector<std::pair<std::string, long long>>& kvPairs);
+    void process();
 
 private:
     LoggerManager();

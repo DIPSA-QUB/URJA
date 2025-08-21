@@ -58,7 +58,7 @@ void* MonitorManager::monitorLoop(void*) {
 
         LoggerManager::getInstance().logLine(timestamp, "DEBUG", "Monitoring loop duration: " + std::to_string(elapsed.count()) + " ms");
         */
-
+        LoggerManager::getInstance().process();
         std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs)); // Wait before next sample
     }
     return nullptr;
