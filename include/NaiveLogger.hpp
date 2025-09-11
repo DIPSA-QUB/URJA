@@ -3,6 +3,8 @@
 
 #include "ILogger.hpp"
 #include "LoggerManager.hpp"
+#include <map>
+#include <mutex>
 
 class NaiveLogger : public ILogger {
 public:
@@ -22,6 +24,12 @@ public:
         const std::vector<std::pair<std::string, long long>>& kvPairs) override;   
 
     void process() override;
+
+private:
+    std::string current_global_timestamp_; 
+    std::map<pid_t, std::pair<long long, long long>> collectedThreadMetrics_;
+    std::mutex metricsMutex_;
+    std::string lastAppliedFreq_ = "";
 };
 
 #endif
