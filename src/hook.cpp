@@ -13,6 +13,8 @@
 #include "MonitorManager.hpp"
 #include "LoggerManager.hpp"
 
+
+
 static int (*real_pthread_create)(pthread_t *, const pthread_attr_t *, void *(*)(void *), void *);
 
 static pthread_once_t once_control = PTHREAD_ONCE_INIT;
@@ -22,20 +24,37 @@ static void init_real_pthread() {
     real_pthread_create = (decltype(real_pthread_create))dlsym(RTLD_NEXT, "pthread_create");
 }
 
+struct ThreadGuard {
+    pid_t tid;
+    ThreadGuard(pid_t t) : tid(t) {}
+    ~ThreadGuard() {
+        std::cout << "Finished: " << tid << std::endl;
+        PapiManager::getInstance().markThreadFinished(tid);
+    }
+};
+
 static void* thread_entry(void* arg) {
     auto* real = reinterpret_cast<void **>(arg);
     auto* fn = reinterpret_cast<void *(*)(void *)>(real[0]);
     void* fn_arg = real[1];
-    free(arg);
+    //free(arg);
 
     pid_t tid = syscall(SYS_gettid);
-
     PapiManager::getInstance().registerThread(tid, pthread_self());
-    
-    void* result = fn(fn_arg);
-    PapiManager::getInstance().markThreadFinished(tid);
-    return result;
+    std::cout << "Started: " << tid << std::endl;
+
+    ThreadGuard guard(tid);  // ensures cleanup at scope exit
+
+    void* result = nullptr;
+    try {
+        result = fn(fn_arg);
+    } catch (...) {
+        std::cerr << "Unhandled exception in thread " << tid << std::endl;
+    }
+
+    return result;  // guard.~ThreadGuard() runs here automatically
 }
+
 
 extern "C" int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                               void *(*start_routine)(void *), void *arg) {

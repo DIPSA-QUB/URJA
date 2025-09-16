@@ -16,7 +16,7 @@ void PapiEventRegistry::initialize() {
     if (initialized_) return;
 
     const char* env = std::getenv("URJA_PAPI_EVENTS");
-    std::string eventsStr = env ? std::string(env) : "PAPI_TOT_CYC,PAPI_TOT_INS,PAPI_L2_DCM";
+    std::string eventsStr = env ? std::string(env) : "PAPI_TOT_CYC,PAPI_TOT_INS,PAPI_L3_TCM";
 
     if (!env) {
         LoggerManager::getInstance().logLine("INIT", LogTag::INFO,

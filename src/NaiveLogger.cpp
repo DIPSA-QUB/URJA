@@ -83,7 +83,7 @@ void NaiveLogger::process() {
 
 
 
-            printf("[URJA][%s][PAPI][AGGREGATED]> TOT_INS: %lld, TOT_INS: %lld, L2_DCM: %lld, RATIO: %.5f, STATUS: Changed, FREQ: %sGHz\n",
+            printf("[URJA][%s][PAPI][AGGREGATED]> TOT_INS: %lld, L2_DCM: %lld, RATIO: %.5f, STATUS: Changed, FREQ: %sGHz\n",
                     current_global_timestamp_.c_str(), total_tot_ins, total_l2_dcm, ratio, newFreq.c_str());
         } else {
             printf("[URJA][%s][PAPI][AGGREGATED]> TOT_INS: %lld, L2_DCM: %lld, RATIO: %.5f, STATUS: Unchanged, FREQ: %sGHz\n",

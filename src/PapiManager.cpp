@@ -7,7 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
-
+#include <iostream>
 
 static pthread_t monitorThreadId_;
 static pthread_t mainThreadId_;
@@ -42,7 +42,8 @@ void PapiManager::markThreadFinished(pid_t tid) {
     if (it != threads_.end()) {
         it->second->markFinished();
     } else {
-        LoggerManager::getInstance().logLine("THREAD", LogTag::ERROR, "Tried to mark unknown TID as finished.");
+        if (tid != monitorThreadId_) LoggerManager::getInstance().logLine("THREAD", LogTag::ERROR, "Tried to mark unknown TID as finished.");
+        std::cout << "Error TID: " << tid << std::endl;
         return;
     }
 }
