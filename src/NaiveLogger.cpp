@@ -29,7 +29,6 @@ void NaiveLogger::logParams(const char* timestamp, LogTag tag,
     long long TOT_INS = -1;
     long long TOT_CYC = -1;
 
-    // Find L3_TCM and TOT_INS in the provided key-value pairs
     for (const auto& [name, value] : kvPairs) {
         if (name == "PAPI_L3_TCM") {
             L3_TCM = value;
@@ -51,6 +50,9 @@ void NaiveLogger::logParams(const char* timestamp, LogTag tag1, LogTag tag2,
     pid_t tid, pthread_t pthreadId, const std::vector<std::pair<std::string, long long>>& kvPairs) {}
 
 void NaiveLogger::process() {
+    std::string STATUS = "U";
+    std::string newFreq = MIN_FREQ;
+    
     long long SUM_TOT_CYC = 0;
     long long SUM_TOT_INS = 0;
     long long SUM_L3_TCM = 0;
@@ -60,7 +62,7 @@ void NaiveLogger::process() {
     if (collectedThreadMetrics_.empty()) {
         printf("[URJA][%s][PAPI][AGGREGATED]> No PAPI data collected in this interval. No frequency change.\n",
                 current_global_timestamp_.c_str());
-        collectedThreadMetrics_.clear(); // Clear to remove stale data
+        collectedThreadMetrics_.clear();
         return;
     }
 
@@ -73,48 +75,30 @@ void NaiveLogger::process() {
     collectedThreadMetrics_.clear();
     lock.unlock();
     if (SUM_TOT_CYC == 0) {
-        std::string newFreq = "0.8";
-
         if (lastAppliedFreq_ != newFreq) {
             PowerUtils::setCpuFrequency(newFreq);
             lastAppliedFreq_ = newFreq;
-            printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: -1, STATUS: Changed, FREQ: %sGHz\n",
-                    current_global_timestamp_.c_str(), SUM_TOT_CYC, SUM_TOT_INS, SUM_L3_TCM, newFreq.c_str());
-        } else {
-            printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: -1, STATUS: Unchanged, FREQ: %sGHz\n",
-                    current_global_timestamp_.c_str(), SUM_TOT_CYC, SUM_TOT_INS, SUM_L3_TCM, newFreq.c_str());
+            STATUS = "C";
         }
     } else if (SUM_L3_TCM >= 0 && SUM_TOT_INS > 0) {
         double ratio = static_cast<double>(SUM_L3_TCM) / static_cast<double>(SUM_TOT_INS);
-        std::string newFreq;
-
         if (ratio < 0.00005) {
-            newFreq = "2.8";
+            newFreq = MAX_FREQ;
         } else {
-            newFreq = "0.8";
+            newFreq = MIN_FREQ;
         }
-        
         if (lastAppliedFreq_ != newFreq) {
             PowerUtils::setCpuFrequency(newFreq);
             lastAppliedFreq_ = newFreq;
-
-            printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: %.5f, STATUS: Changed, FREQ: %sGHz\n",
-                    current_global_timestamp_.c_str(), SUM_TOT_CYC, SUM_TOT_INS, SUM_L3_TCM, ratio, newFreq.c_str());
-        } else {
-            printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: %.5f, STATUS: Unchanged, FREQ: %sGHz\n",
-                    current_global_timestamp_.c_str(), SUM_TOT_CYC, SUM_TOT_INS, SUM_L3_TCM, ratio, newFreq.c_str());
+            STATUS = "C";
         }
-    } else { 
-        std::string newFreq = "0.8";
-
+    } else {
         if (lastAppliedFreq_ != newFreq) {
             PowerUtils::setCpuFrequency(newFreq);
             lastAppliedFreq_ = newFreq;
-            printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: -1, STATUS: Changed, FREQ: %sGHz\n",
-                    current_global_timestamp_.c_str(), SUM_TOT_CYC, SUM_TOT_INS, SUM_L3_TCM, newFreq.c_str());
-        } else {
-            printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: -1, STATUS: Unchanged, FREQ: %sGHz\n",
-                    current_global_timestamp_.c_str(), SUM_TOT_CYC, SUM_TOT_INS, SUM_L3_TCM, newFreq.c_str());
+            STATUS = "C";
         }
     }
+    printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: %.5f, STATUS: %s, FREQ: %sGHz\n",
+                    current_global_timestamp_.c_str(), SUM_TOT_CYC, SUM_TOT_INS, SUM_L3_TCM, ratio, STATUS.c_str(), newFreq.c_str());
 }
