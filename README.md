@@ -30,6 +30,20 @@ make
 
 ## Running
 
+If you want to run `URJA` with `NaiveLogger`, run -
+
+```bash
+source scripts/set_env.sh
+```
+
+once and execute any app with -
+
+```bash
+urja  /path/to/your_app
+```
+
+Ensure that the `URJA_SCRIPT_DIR` variable in `scripts/set_env.sh` points to the correct path.
+
 ### Set appropriate environment variables
 
 ```bash
@@ -53,6 +67,8 @@ LD_PRELOAD=build/bin/liburja.so /path/to/your_app
 
 ### Requirements for `URJA_ENERGY_BACKEND=shell`
 
+##### Warning: This is not recommended and will be depricated in the future.
+
 You only need to run **URJA** with root access if you choose the `shell` energy backend (e.g., `/path/to/rapl_read.sh`).
 
 In that case, the script must be executable and present in the `sudoers` list without password prompt to allow non-interactive execution.
@@ -74,15 +90,46 @@ The source code for `/path/to/rapl_read.sh` is:
 ```bash
 #!/bin/sh
 
-printf '%-20s; %-20s; %-15s; %20s; %20s\n' "name" "socket:domain_id"  "domain" "energy_uj"  "max_energy_uj"
-for f in `find /sys/class/powercap/intel-rapl\:* | grep -P "\d+"`; do
-    # echo $f;
-    name=`echo $f | rev | cut -d/ -f1 | rev`
-    id=`echo $name | cut -d: -f2,3`;
-    domain=`cat $f/name`
-    energy=`cat $f/energy_uj`
-    max_energy=`cat $f/max_energy_range_uj`
-    printf '%-20s; %-20s; %-15s; %20s; %20s\n' ${name} ${id} ${domain} ${energy} ${max_energy}
+MODE="$1"
+
+if [ -z "$MODE" ]; then
+    printf '%-20s; %-20s; %-15s; %20s; %20s\n' "name" "socket:domain_id"  "domain" "energy_uj"  "max_energy_uj"
+    for f in `find /sys/class/powercap/intel-rapl\:* | grep -P "\d+"`; do
+        name=`echo $f | rev | cut -d/ -f1 | rev`
+        id=`echo $name | cut -d: -f2,3`;
+        domain=`cat $f/name`
+        energy=`cat $f/energy_uj`
+        max_energy=`cat $f/max_energy_range_uj`
+        printf '%-20s; %-20s; %-15s; %20s; %20s\n' ${name} ${id} ${domain} ${energy} ${max_energy}
+    done
+    exit 0
+fi
+
+for f in $(find /sys/class/powercap/intel-rapl\:* | grep -P "\d+"); do
+    domain_name=$(basename "$f")
+    case "$MODE" in
+        -h|--help)
+            echo "Usage: $0 [-n|--name | -m|--max | -i|--instant]"
+            echo "  -n, --name      Print <name>-<domain>"
+            echo "  -m, --max       Print max_energy_uj values"
+            echo "  -i, --instant   Print current energy_uj values"
+            exit 0
+            ;;
+        -n|--name)
+            domain=$(cat "$f/name" | tr ' ' '-')
+            echo "${domain_name}-${domain}"
+            ;;
+        -m|--max)
+            cat "$f/max_energy_range_uj"
+            ;;
+        -i|--instant)
+            cat "$f/energy_uj"
+            ;;
+        *)
+            echo "Usage: $0 [-n|--name | -m|--max | -i|--instant]"
+            exit 1
+            ;;
+    esac
 done
 ```
 
@@ -104,4 +151,3 @@ sudo sh -c 'echo 2 > /proc/sys/kernel/perf_event_paranoid'
 
 ## Warning
 
-This tool hooks into low-level system behavior like threads, performance counters, and power monitoring (e.g., via `LD_PRELOAD`, `sudo`, or hardware monitoring interfaces like **RAPL** and **PAPI**). It can be risky if used improperly. Use it with care — preferably in safe, controlled environments. Avoid running it on critical systems unless you know exactly what you're doing. This is in active development and is not rigorously tested.

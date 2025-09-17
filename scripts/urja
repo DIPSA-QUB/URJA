@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Define the path to your dynamic library
-# It's a good practice to use an absolute path to avoid issues with different working directories.
 LIB_PATH="$HOME/urja/build/bin/liburja.so"
 
 # Check if the library file exists
@@ -10,7 +8,4 @@ if [ ! -f "$LIB_PATH" ]; then
     exit 1
 fi
 
-# Set the LD_PRELOAD environment variable for the command and execute the rest of the arguments.
-# The $@ variable expands to all command-line arguments passed to the script,
-# which is exactly what you want (e.g., "myapp myparam").
 LD_PRELOAD="$LIB_PATH" "$@"
