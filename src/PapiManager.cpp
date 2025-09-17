@@ -42,7 +42,7 @@ void PapiManager::markThreadFinished(pid_t tid) {
     if (it != threads_.end()) {
         it->second->markFinished();
     } else {
-        if (tid != monitorThreadId_) LoggerManager::getInstance().logLine("THREAD", LogTag::ERROR, "Tried to mark unknown TID as finished.");
+        LoggerManager::getInstance().logLine("THREAD", LogTag::ERROR, "Tried to mark unknown TID as finished.");
         std::cout << "Error TID: " << tid << std::endl;
         return;
     }

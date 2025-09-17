@@ -22,7 +22,7 @@ endif
 # ========================
 CXX            := g++
 
-CXXFLAGS := -Wall -O3 -flto -fPIC -std=c++17 -march=native -ffast-math -pthread \
+CXXFLAGS := -Wall -O3 -flto=auto -fPIC -std=c++17 -march=native -ffast-math -pthread \
             -I$(INCLUDE_DIR) $(PAPI_INCLUDE)
 
 LDFLAGS  := -shared -flto -Wl,-rpath,$(PAPI_DIR)/lib $(PAPI_LIB) -pthread
