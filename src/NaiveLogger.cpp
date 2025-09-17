@@ -5,6 +5,30 @@
 #include <iostream>
 
 NaiveLogger::NaiveLogger() {
+    // Retrieve environment variables
+    const char* max_freq_env = std::getenv("URJA_NAIVE_MAX_FREQ");
+    const char* min_freq_env = std::getenv("URJA_NAIVE_MIN_FREQ");
+    const char* threshold_env = std::getenv("URJA_NAIVE_THRESHOLD");
+
+    // Check if the environment variables are set
+    if (!max_freq_env || !min_freq_env || !threshold_env) {
+        std::cerr << "ERROR: One or more required environment variables are not set." << std::endl;
+        std::cerr << "Please set URJA_NAIVE_MAX_FREQ, URJA_NAIVE_MIN_FREQ, and URJA_NAIVE_THRESHOLD." << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    // Convert and store the values
+    MAX_FREQ = max_freq_env;
+    MIN_FREQ = min_freq_env;
+    try {
+        THRESHOLD = std::stof(threshold_env);
+    } catch (const std::invalid_argument& e) {
+        std::cerr << "ERROR: Invalid THRESHOLD value. Must be a number." << std::endl;
+        exit(EXIT_FAILURE);
+    } catch (const std::out_of_range& e) {
+        std::cerr << "ERROR: THRESHOLD value out of range." << std::endl;
+        exit(EXIT_FAILURE);
+    }
     PowerUtils::setGovernor("userspace");
 }
 
@@ -52,7 +76,9 @@ void NaiveLogger::logParams(const char* timestamp, LogTag tag1, LogTag tag2,
 void NaiveLogger::process() {
     std::string STATUS = "U";
     std::string newFreq = MIN_FREQ;
-    
+    double ratio = -1;
+
+
     long long SUM_TOT_CYC = 0;
     long long SUM_TOT_INS = 0;
     long long SUM_L3_TCM = 0;
@@ -81,8 +107,8 @@ void NaiveLogger::process() {
             STATUS = "C";
         }
     } else if (SUM_L3_TCM >= 0 && SUM_TOT_INS > 0) {
-        double ratio = static_cast<double>(SUM_L3_TCM) / static_cast<double>(SUM_TOT_INS);
-        if (ratio < 0.00005) {
+        ratio = static_cast<double>(SUM_L3_TCM) / static_cast<double>(SUM_TOT_INS);
+        if (ratio < THRESHOLD) {
             newFreq = MAX_FREQ;
         } else {
             newFreq = MIN_FREQ;

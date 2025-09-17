@@ -28,7 +28,6 @@ struct ThreadGuard {
     pid_t tid;
     ThreadGuard(pid_t t) : tid(t) {}
     ~ThreadGuard() {
-        std::cout << "Finished: " << tid << std::endl;
         PapiManager::getInstance().markThreadFinished(tid);
     }
 };
@@ -41,7 +40,6 @@ static void* thread_entry(void* arg) {
 
     pid_t tid = syscall(SYS_gettid);
     PapiManager::getInstance().registerThread(tid, pthread_self());
-    std::cout << "Started: " << tid << std::endl;
 
     ThreadGuard guard(tid);  // ensures cleanup at scope exit
 
@@ -52,7 +50,7 @@ static void* thread_entry(void* arg) {
         std::cerr << "Unhandled exception in thread " << tid << std::endl;
     }
 
-    return result;  // guard.~ThreadGuard() runs here automatically
+    return result;
 }
 
 

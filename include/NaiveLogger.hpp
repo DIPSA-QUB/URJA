@@ -26,8 +26,9 @@ public:
     void process() override;
 
 private:
-    string MAX_FREQ = "2.10";
-    string MIN_FREQ = "1.20";
+    std::string MAX_FREQ;
+    std::string MIN_FREQ;
+    float THRESHOLD;
 
     std::string current_global_timestamp_; 
     std::map<pid_t, std::tuple<long long, long long, long long>> collectedThreadMetrics_;
