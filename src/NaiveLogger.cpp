@@ -29,6 +29,7 @@ NaiveLogger::NaiveLogger() {
         std::cerr << "ERROR: THRESHOLD value out of range." << std::endl;
         exit(EXIT_FAILURE);
     }
+    PowerUtils::initCpuFiles();
     PowerUtils::setGovernor("userspace");
 }
 
@@ -49,23 +50,14 @@ void NaiveLogger::logParams(const char* timestamp, LogTag tag,
     pid_t tid, pthread_t pthreadId, const std::vector<std::pair<std::string, long long>>& kvPairs) {
     if(tag == LogTag::MONITOR) return;
     
-    long long L3_TCM = -1;
-    long long TOT_INS = -1;
-    long long TOT_CYC = -1;
-
     for (const auto& [name, value] : kvPairs) {
         if (name == "PAPI_L3_TCM") {
-            L3_TCM = value;
+            SUM_L3_TCM += value;
         } else if (name == "PAPI_TOT_INS") {
-            TOT_INS = value;
+            SUM_TOT_INS += value;
         } else if (name == "PAPI_TOT_CYC") {
-            TOT_CYC = value;
+            SUM_TOT_CYC += value;
         }
-    }
-
-    if (L3_TCM >= 0 && TOT_INS >= 0) {
-        std::unique_lock<std::mutex> lock(metricsMutex_);
-        collectedThreadMetrics_[tid] = {TOT_CYC, TOT_INS, L3_TCM};
     }
     current_global_timestamp_ = timestamp;
 }
@@ -78,28 +70,6 @@ void NaiveLogger::process() {
     std::string newFreq = MIN_FREQ;
     double ratio = -1;
 
-
-    long long SUM_TOT_CYC = 0;
-    long long SUM_TOT_INS = 0;
-    long long SUM_L3_TCM = 0;
-
-    std::unique_lock<std::mutex> lock(metricsMutex_);
-
-    if (collectedThreadMetrics_.empty()) {
-        printf("[URJA][%s][PAPI][AGGREGATED]> No PAPI data collected in this interval. No frequency change.\n",
-                current_global_timestamp_.c_str());
-        collectedThreadMetrics_.clear();
-        return;
-    }
-
-    for (const auto& entry : collectedThreadMetrics_) {
-        SUM_TOT_CYC += std::get<0>(entry.second); // TOT_CYC
-        SUM_TOT_INS += std::get<1>(entry.second); // TOT_INS
-        SUM_L3_TCM += std::get<2>(entry.second);  // L3_TCM
-    }
-
-    collectedThreadMetrics_.clear();
-    lock.unlock();
     if (SUM_TOT_CYC == 0) {
         if (lastAppliedFreq_ != newFreq) {
             PowerUtils::setCpuFrequency(newFreq);
@@ -125,6 +95,10 @@ void NaiveLogger::process() {
             STATUS = "C";
         }
     }
-    printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: %.5f, STATUS: %s, FREQ: %sGHz\n",
-                    current_global_timestamp_.c_str(), SUM_TOT_CYC, SUM_TOT_INS, SUM_L3_TCM, ratio, STATUS.c_str(), newFreq.c_str());
+    //printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: %.5f, STATUS: %s, FREQ: %sGHz\n",
+    //                current_global_timestamp_.c_str(), SUM_TOT_CYC, SUM_TOT_INS, SUM_L3_TCM, ratio, STATUS.c_str(), newFreq.c_str());
+                    
+    SUM_TOT_CYC = 0;
+    SUM_TOT_INS = 0;
+    SUM_L3_TCM = 0;
 }

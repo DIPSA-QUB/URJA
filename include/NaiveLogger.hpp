@@ -31,7 +31,11 @@ private:
     float THRESHOLD;
 
     std::string current_global_timestamp_; 
-    std::map<pid_t, std::tuple<long long, long long, long long>> collectedThreadMetrics_;
+
+    long long SUM_TOT_CYC = 0;
+    long long SUM_TOT_INS = 0;
+    long long SUM_L3_TCM = 0;
+
     std::mutex metricsMutex_;
     std::string lastAppliedFreq_ = "";
 };
