@@ -10,7 +10,7 @@
 static std::vector<std::ofstream> cpuFiles;
 
 void PowerUtils::initCpuFiles() {
-    int cpuCount = std::thread::hardware_concurrency();
+    /*int cpuCount = std::thread::hardware_concurrency();
     if (cpuCount <= 0) {
         throw std::runtime_error("Failed to detect CPU count");
     }
@@ -23,7 +23,7 @@ void PowerUtils::initCpuFiles() {
             throw std::runtime_error("Cannot open " + path);
         }
         cpuFiles.push_back(std::move(file));
-    }
+    }*/
 }
 
 void PowerUtils::setFrequencyForAllCPUs(const std::string &freqGHz) {
@@ -46,7 +46,7 @@ void PowerUtils::setGovernor(const std::string& governor) {
     */
 }
 
-void PowerUtils::setCpuFrequency(const std::string& freqGHz) {
+/*void PowerUtils::setCpuFrequency(const std::string& freqGHz) {
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
     using std::chrono::milliseconds;
@@ -60,7 +60,7 @@ void PowerUtils::setCpuFrequency(const std::string& freqGHz) {
 
     std::cout << "Time elapsed: " << ms_int.count() << "ms\n";
     std::cout << "Time elapsed (double): " << ms_double.count() << "ms\n";
-}
+}*/
 
 
 /*void PowerUtils::sysfsWriteFreq(int cpu, const std::string &value) {
@@ -80,7 +80,7 @@ void PowerUtils::setGovernor(const std::string& governor) {
     }
 }*/
 
-/*void PowerUtils::setCpuFrequency(const std::string& freqGHz) {
+void PowerUtils::setCpuFrequency(const std::string& freqGHz) {
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
     using std::chrono::duration;
@@ -88,16 +88,15 @@ void PowerUtils::setGovernor(const std::string& governor) {
 
     auto t1 = high_resolution_clock::now();
     std::string cmd = "sudo cpupower frequency-set --max " + freqGHz +"GHz > /dev/null 2>&1";
+    //std::string cmd = "sudo /var/shared/power/bin/set-power-options.sh -u " + freqGHz +"GHz  -d " + freqGHz +"GHz > /dev/null 2>&1";
+
     int ret = system(cmd.c_str());
     if (ret != 0) {
         LoggerManager::getInstance().logLine("POWER-UTILS", LogTag::ERROR, "Failed to set frequency!");
     }
     auto t2 = high_resolution_clock::now();
 
-    auto ms_int = duration_cast<milliseconds>(t2 - t1);
-
     duration<double, std::milli> ms_double = t2 - t1;
 
-    std::cout << ms_int.count() << "ms\n";
-    std::cout << ms_double.count() << "ms\n";
-}*/
+    std::cout << "TIME: " << ms_double.count() << "ms\n";
+}
