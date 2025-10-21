@@ -39,7 +39,9 @@ void FileLogger::logParams(const char* timestamp, const LogTag tag1, const LogTa
     const std::vector<std::pair<std::string, long long>>& kvPairs) {
     if (!file_.is_open()) return;
 
-    file_ << "[URJA][" << timestamp << "][" << toString(tag1) << "][" << tid << "|" << (unsigned long)pthreadId << "]> ";
+    file_ << "[URJA][" << timestamp << "][" << toString(tag1) << "][" << toString(tag2) 
+          << "][" << tid << "|" << (unsigned long)pthreadId << "]> ";
+    
     for (size_t i = 0; i < kvPairs.size(); ++i) {
         file_ << kvPairs[i].first << ": " << kvPairs[i].second;
         if (i < kvPairs.size() - 1) file_ << ", ";
