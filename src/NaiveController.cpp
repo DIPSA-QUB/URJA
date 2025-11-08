@@ -1,10 +1,10 @@
 #include "LoggerManager.hpp"
-#include "NaiveLogger.hpp"
+#include "NaiveController.hpp"
 #include "PowerUtils.hpp"
 #include <cstdio>
 #include <iostream>
 
-NaiveLogger::NaiveLogger() {
+NaiveController::NaiveController() {
     // Retrieve environment variables
     const char* max_freq_env = std::getenv("URJA_NAIVE_MAX_FREQ");
     const char* min_freq_env = std::getenv("URJA_NAIVE_MIN_FREQ");
@@ -33,11 +33,11 @@ NaiveLogger::NaiveLogger() {
     PowerUtils::setGovernor("userspace");
 }
 
-void NaiveLogger::logLine(const char* timestamp, LogTag tag, const std::string& message) {
+void NaiveController::logLine(const char* timestamp, LogTag tag, const std::string& message) {
     printf("[URJA][%s][%s]> %s\n", timestamp, toString(tag), message.c_str());
 }
 
-void NaiveLogger::logParams(const char* timestamp, LogTag tag, const std::vector<std::pair<std::string, long long>>& kvPairs) {
+void NaiveController::logParams(const char* timestamp, LogTag tag, const std::vector<std::pair<std::string, long long>>& kvPairs) {
     printf("[URJA][%s][%s]> ", timestamp, toString(tag));
     for (size_t i = 0; i < kvPairs.size(); ++i) {
         printf("%s: %lld", kvPairs[i].first.c_str(), kvPairs[i].second);
@@ -46,7 +46,7 @@ void NaiveLogger::logParams(const char* timestamp, LogTag tag, const std::vector
     printf("\n");
 }
 
-void NaiveLogger::logParams(const char* timestamp, LogTag tag,
+void NaiveController::logParams(const char* timestamp, LogTag tag,
     pid_t tid, pthread_t pthreadId, const std::vector<std::pair<std::string, long long>>& kvPairs) {
     if(tag == LogTag::MONITOR) return;
     
@@ -62,10 +62,10 @@ void NaiveLogger::logParams(const char* timestamp, LogTag tag,
     current_global_timestamp_ = timestamp;
 }
 
-void NaiveLogger::logParams(const char* timestamp, LogTag tag1, LogTag tag2,
+void NaiveController::logParams(const char* timestamp, LogTag tag1, LogTag tag2,
     pid_t tid, pthread_t pthreadId, const std::vector<std::pair<std::string, long long>>& kvPairs) {}
 
-void NaiveLogger::process() {
+void NaiveController::process() {
     std::string STATUS = "U";
     std::string newFreq = MIN_FREQ;
     double ratio = -1;
@@ -95,8 +95,8 @@ void NaiveLogger::process() {
             STATUS = "C";
         }
     }
-    //printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: %.5f, STATUS: %s, FREQ: %sGHz\n",
-    //                current_global_timestamp_.c_str(), SUM_TOT_CYC, SUM_TOT_INS, SUM_L3_TCM, ratio, STATUS.c_str(), newFreq.c_str());
+    printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: %.5f, STATUS: %s, FREQ: %s\n",
+                    current_global_timestamp_.c_str(), SUM_TOT_CYC, SUM_TOT_INS, SUM_L3_TCM, ratio, STATUS.c_str(), newFreq.c_str());
                     
     SUM_TOT_CYC = 0;
     SUM_TOT_INS = 0;

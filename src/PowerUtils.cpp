@@ -10,20 +10,20 @@
 static std::vector<std::ofstream> cpuFiles;
 
 void PowerUtils::initCpuFiles() {
-    /*int cpuCount = std::thread::hardware_concurrency();
+    int cpuCount = std::thread::hardware_concurrency();
     if (cpuCount <= 0) {
         throw std::runtime_error("Failed to detect CPU count");
     }
 
     cpuFiles.reserve(cpuCount);
     for (int i = 0; i < cpuCount; ++i) {
-        std::string path = "/sys/devices/system/cpu/cpu" + std::to_string(i) + "/cpufreq/scaling_setspeed";
+        std::string path = "/sys/devices/system/cpu/cpu" + std::to_string(i) + "/cpufreq/scaling_max_freq";
         std::ofstream file(path);
         if (!file) {
             throw std::runtime_error("Cannot open " + path);
         }
         cpuFiles.push_back(std::move(file));
-    }*/
+    }
 }
 
 void PowerUtils::setFrequencyForAllCPUs(const std::string &freqGHz) {
@@ -37,16 +37,15 @@ void PowerUtils::setFrequencyForAllCPUs(const std::string &freqGHz) {
 }
 
 void PowerUtils::setGovernor(const std::string& governor) {
-    /*
-    std::string cmd = "sudo /var/shared/power/bin/set-power-options.sh -c all -g " + governor;
+/*    std::string cmd = "sudo /var/shared/power/bin/set-power-options.sh -c all -g " + governor;
     int ret = system(cmd.c_str());
     if (ret != 0) {
         LoggerManager::getInstance().logLine("POWER-UTILS", LogTag::ERROR, "Failed to set governor!");
     }
-    */
+*/
 }
 
-/*void PowerUtils::setCpuFrequency(const std::string& freqGHz) {
+void PowerUtils::setCpuFrequency(const std::string& freqGHz) {
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
     using std::chrono::milliseconds;
@@ -60,7 +59,7 @@ void PowerUtils::setGovernor(const std::string& governor) {
 
     std::cout << "Time elapsed: " << ms_int.count() << "ms\n";
     std::cout << "Time elapsed (double): " << ms_double.count() << "ms\n";
-}*/
+}
 
 
 /*void PowerUtils::sysfsWriteFreq(int cpu, const std::string &value) {
@@ -70,9 +69,9 @@ void PowerUtils::setGovernor(const std::string& governor) {
         throw std::runtime_error("Cannot open " + path);
     }
     file << value;
-}
+}*/
 
-void PowerUtils::setGovernor(const std::string& governor) {
+/*void PowerUtils::setGovernor(const std::string& governor) {
     std::string cmd = "sudo /var/shared/power/bin/set-power-options.sh -c all -g " + governor;
     int ret = system(cmd.c_str());
     if (ret != 0) {
@@ -80,7 +79,7 @@ void PowerUtils::setGovernor(const std::string& governor) {
     }
 }*/
 
-void PowerUtils::setCpuFrequency(const std::string& freqGHz) {
+/*void PowerUtils::setCpuFrequency(const std::string& freqGHz) {
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
     using std::chrono::duration;
@@ -99,4 +98,4 @@ void PowerUtils::setCpuFrequency(const std::string& freqGHz) {
     duration<double, std::milli> ms_double = t2 - t1;
 
     std::cout << "TIME: " << ms_double.count() << "ms\n";
-}
+}*/
