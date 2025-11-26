@@ -9,53 +9,74 @@
 #include <algorithm>
 
 void RaplSysfsMonitor::initialize() {
-    glob_t gtop, gsub;
-
-    glob("/sys/class/powercap/intel-rapl:*/energy_uj", GLOB_NOSORT, nullptr, &gtop);
-    glob("/sys/class/powercap/intel-rapl:*/intel-rapl:*:*/energy_uj", GLOB_NOSORT, nullptr, &gsub);
-
-    auto process = [this](glob_t& g) {
-        for (size_t i = 0; i < g.gl_pathc; ++i) {
-            std::string energyPath(g.gl_pathv[i]);
-            uint64_t energy = readEnergy(energyPath);
-            if (energy == static_cast<uint64_t>(-1)) continue;
-
-            std::string basePath = energyPath.substr(0, energyPath.find_last_of('/'));
-            std::string namePath = basePath + "/name";
-            std::string maxPath  = basePath + "/max_energy_range_uj";
-
-            std::string label = "unknown";
-
-            FILE* f = fopen(namePath.c_str(), "r");
-
-            if (f) {
-                char buf[256];
-                if (fgets(buf, sizeof(buf), f)) {
-                    label = buf;
-                    label.erase(std::remove(label.begin(), label.end(), '\n'), label.end());
-                }
-                fclose(f);
-            }
-
-            uint64_t max_value = 0;
-            f = fopen(maxPath.c_str(), "r");
-            if (f) {
-                char buf[64];
-                if (fgets(buf, sizeof(buf), f)) {
-                    max_value = strtoull(buf, nullptr, 10);
-                }
-                fclose(f);
-            }
-            domains_.push_back({formatLabel(label, energyPath), energyPath, energy, max_value});
+    glob_t g;
+    memset(&g, 0, sizeof(g));
+    
+    glob("/sys/class/powercap/intel-rapl:*/energy_uj",
+         GLOB_NOSORT, nullptr, &g);
+    
+    glob("/sys/class/powercap/intel-rapl:*/intel-rapl:*:*/energy_uj",
+         GLOB_NOSORT | GLOB_APPEND, nullptr, &g);
+    
+    std::unordered_set<std::string> seen;
+    
+    auto addDomain = [this, &seen](const char* path) {
+        std::string energyPath(path);
+        uint64_t energy = readEnergy(energyPath);
+        if (energy == static_cast<uint64_t>(-1))
+            return;
+    
+        std::string basePath = energyPath.substr(0, energyPath.find_last_of('/'));
+    
+        char realBuf[PATH_MAX];
+        std::string key;
+        if (realpath(basePath.c_str(), realBuf)) {
+            key = realBuf;
+        } else {
+            key = basePath;
         }
+    
+        if (!seen.insert(key).second)
+            return;
+    
+        std::string namePath = basePath + "/name";
+        std::string maxPath  = basePath + "/max_energy_range_uj";
+    
+        std::string label = "unknown";
+    
+        if (FILE* f = fopen(namePath.c_str(), "r")) {
+            char buf[256];
+            if (fgets(buf, sizeof(buf), f)) {
+                label = buf;
+                label.erase(std::remove(label.begin(), label.end(), '\n'),
+                            label.end());
+            }
+            fclose(f);
+        }
+    
+        uint64_t max_value = 0;
+        if (FILE* f = fopen(maxPath.c_str(), "r")) {
+            char buf[64];
+            if (fgets(buf, sizeof(buf), f)) {
+                max_value = strtoull(buf, nullptr, 10);
+            }
+            fclose(f);
+        }
+    
+        domains_.push_back({formatLabel(label, energyPath),
+                            energyPath,
+                            energy,
+                            max_value});
     };
-
-    process(gtop);
-    process(gsub);
-    globfree(&gtop);
-    globfree(&gsub);
-
-    LoggerManager::getInstance().logLine("INIT", LogTag::DEBUG, 
+    
+    for (size_t i = 0; i < g.gl_pathc; ++i) {
+        addDomain(g.gl_pathv[i]);
+    }
+    
+    globfree(&g);
+    
+    LoggerManager::getInstance().logLine(
+        "INIT", LogTag::DEBUG,
         "Loaded " + std::to_string(domains_.size()) + " RAPL domains.");
 }
 
