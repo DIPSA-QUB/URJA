@@ -1,10 +1,11 @@
-#ifndef EXPERIMENTAL_LOGGER_HPP
-#define EXPERIMENTAL_LOGGER_HPP
+#ifndef NAIVE_CONTROLLER_HPP
+#define NAIVE_CONTROLLER_HPP
 
 #include "ILogger.hpp"
-#include "LoggerManager.hpp"
-#include <map>
-#include <mutex>
+#include "PowerUtils.hpp"
+#include <string>
+#include <vector>
+#include <cstdint>
 
 class NaiveController : public ILogger {
 public:
@@ -12,6 +13,7 @@ public:
     
     void logLine(const char* timestamp, const LogTag tag, const std::string& message) override;
 
+    // Hot path
     void logParams(const char* timestamp, const LogTag tag,
         const std::vector<std::pair<std::string, long long>>& kvPairs) override;
 
@@ -21,23 +23,27 @@ public:
     
     void logParams(const char* timestamp, const LogTag tag1, const LogTag tag2,
         pid_t tid, pthread_t pthreadId,
-        const std::vector<std::pair<std::string, long long>>& kvPairs) override;   
+        const std::vector<std::pair<std::string, long long>>& kvPairs) override {}
 
     void process() override;
 
 private:
-    std::string MAX_FREQ;
-    std::string MIN_FREQ;
-    float THRESHOLD;
+    uint64_t max_freq_int_;
+    uint64_t min_freq_int_;
+    
+    // Hysteresis configuration
+    float threshold_;
+    float margin_; 
 
-    std::string current_global_timestamp_; 
+    // Accumulators
+    long long sum_tot_cyc_ = 0;
+    long long sum_tot_ins_ = 0;
+    long long sum_l3_tcm_ = 0;
 
-    long long SUM_TOT_CYC = 0;
-    long long SUM_TOT_INS = 0;
-    long long SUM_L3_TCM = 0;
+    std::string current_timestamp_;
+    uint64_t current_freq_ = 0;
 
-    std::mutex metricsMutex_;
-    std::string lastAppliedFreq_ = "";
+    PowerUtils::CpuManager& power_;
 };
 
 #endif

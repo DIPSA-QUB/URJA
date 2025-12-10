@@ -1,12 +1,23 @@
 #pragma once
-#include <string>
 #include <vector>
-#include <fstream>
+#include <string>
 
 namespace PowerUtils {
-    void setGovernor(const std::string& governor);
-    void setCpuFrequency(const std::string& freqGHz);
 
-    void initCpuFiles();                  
-    void setFrequencyForAllCPUs(const std::string &freqGHz);
+    class CpuManager {
+    public:
+        static CpuManager& getInstance();
+
+        // Must be called once. No error checks.
+        void init();
+
+        // Raw speed setters
+        void setGovernor(const char* governor); 
+        void setCpuFrequency(double freqKHz);
+
+    private:
+        CpuManager() = default;
+        
+        std::vector<int> m_freqFds;
+    };
 }

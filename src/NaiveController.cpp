@@ -1,36 +1,41 @@
-#include "LoggerManager.hpp"
 #include "NaiveController.hpp"
-#include "PowerUtils.hpp"
 #include <cstdio>
+#include <cstdlib>
+#include <stdexcept>
 #include <iostream>
 
-NaiveController::NaiveController() {
-    // Retrieve environment variables
-    const char* max_freq_env = std::getenv("URJA_NAIVE_MAX_FREQ");
-    const char* min_freq_env = std::getenv("URJA_NAIVE_MIN_FREQ");
-    const char* threshold_env = std::getenv("URJA_NAIVE_THRESHOLD");
+// Branch prediction hints for GCC/Clang
+#define LIKELY(x)      __builtin_expect(!!(x), 1)
+#define UNLIKELY(x)    __builtin_expect(!!(x), 0)
 
-    // Check if the environment variables are set
-    if (!max_freq_env || !min_freq_env || !threshold_env) {
-        std::cerr << "ERROR: One or more required environment variables are not set." << std::endl;
-        std::cerr << "Please set URJA_NAIVE_MAX_FREQ, URJA_NAIVE_MIN_FREQ, and URJA_NAIVE_THRESHOLD." << std::endl;
-        exit(EXIT_FAILURE);
+static std::string getEnv(const char* name, const char* defaultVal = nullptr) {
+    const char* val = std::getenv(name);
+    if (!val) {
+        if (defaultVal) return std::string(defaultVal);
+        throw std::runtime_error(std::string("Missing Env Var: ") + name);
     }
+    return std::string(val);
+}
 
-    // Convert and store the values
-    MAX_FREQ = max_freq_env;
-    MIN_FREQ = min_freq_env;
+NaiveController::NaiveController(): power_(PowerUtils::CpuManager::getInstance()) {
     try {
-        THRESHOLD = std::stof(threshold_env);
-    } catch (const std::invalid_argument& e) {
-        std::cerr << "ERROR: Invalid THRESHOLD value. Must be a number." << std::endl;
-        exit(EXIT_FAILURE);
-    } catch (const std::out_of_range& e) {
-        std::cerr << "ERROR: THRESHOLD value out of range." << std::endl;
-        exit(EXIT_FAILURE);
+        max_freq_int_ = std::stoull(getEnv("URJA_NAIVE_MAX_FREQ"));
+        min_freq_int_ = std::stoull(getEnv("URJA_NAIVE_MIN_FREQ"));
+        threshold_    = std::stof(getEnv("URJA_NAIVE_THRESHOLD"));
+        
+        try {
+            margin_ = std::stof(getEnv("URJA_NAIVE_MARGIN", "0.005"));
+        } catch(...) { margin_ = 0.05f; }
+
+        power_.init();
+        power_.setGovernor("userspace");
+
+        current_freq_ = max_freq_int_;
+        power_.setCpuFrequency(max_freq_int_);
+    } catch (const std::exception& e) {
+        std::cerr << "[NaiveController] Init failed: " << e.what() << std::endl;
+        throw;
     }
-    PowerUtils::initCpuFiles();
-    PowerUtils::setGovernor("userspace");
 }
 
 void NaiveController::logLine(const char* timestamp, LogTag tag, const std::string& message) {
@@ -48,57 +53,67 @@ void NaiveController::logParams(const char* timestamp, LogTag tag, const std::ve
 
 void NaiveController::logParams(const char* timestamp, LogTag tag,
     pid_t tid, pthread_t pthreadId, const std::vector<std::pair<std::string, long long>>& kvPairs) {
-    if(tag == LogTag::MONITOR) return;
     
-    for (const auto& [name, value] : kvPairs) {
-        if (name == "PAPI_L3_TCM") {
-            SUM_L3_TCM += value;
-        } else if (name == "PAPI_TOT_INS") {
-            SUM_TOT_INS += value;
-        } else if (name == "PAPI_TOT_CYC") {
-            SUM_TOT_CYC += value;
+    if (tag == LogTag::MONITOR) return;
+    
+    for (const auto& kv : kvPairs) {
+        if (UNLIKELY(kv.first.empty())) continue;
+
+        const char lastChar = kv.first.back();
+        
+        switch (lastChar) {
+            case 'M': // PAPI_L3_TCM
+                sum_l3_tcm_ += kv.second;
+                break;
+            case 'S': // PAPI_TOT_INS
+                sum_tot_ins_ += kv.second;
+                break;
+            case 'C': // PAPI_TOT_CYC
+                sum_tot_cyc_ += kv.second;
+                break;
+            default:
+                break;
         }
     }
-    current_global_timestamp_ = timestamp;
+    current_timestamp_ = timestamp;
 }
 
-void NaiveController::logParams(const char* timestamp, LogTag tag1, LogTag tag2,
-    pid_t tid, pthread_t pthreadId, const std::vector<std::pair<std::string, long long>>& kvPairs) {}
-
 void NaiveController::process() {
-    std::string STATUS = "U";
-    std::string newFreq = MIN_FREQ;
-    double ratio = -1;
+    const char* status = "U"; 
+    uint64_t next_freq = current_freq_; 
 
-    if (SUM_TOT_CYC == 0) {
-        if (lastAppliedFreq_ != newFreq) {
-            PowerUtils::setCpuFrequency(newFreq);
-            lastAppliedFreq_ = newFreq;
-            STATUS = "C";
+    if (UNLIKELY(sum_tot_ins_ == 0)) {} 
+    else {
+        double ratio = static_cast<double>(sum_l3_tcm_) / static_cast<double>(sum_tot_ins_);
+
+        if (ratio < (threshold_ - margin_)) {
+            next_freq = max_freq_int_;
+        } 
+        else if (ratio > (threshold_ + margin_)) {
+            next_freq = min_freq_int_;
         }
-    } else if (SUM_L3_TCM >= 0 && SUM_TOT_INS > 0) {
-        ratio = static_cast<double>(SUM_L3_TCM) / static_cast<double>(SUM_TOT_INS);
-        if (ratio < THRESHOLD) {
-            newFreq = MAX_FREQ;
-        } else {
-            newFreq = MIN_FREQ;
-        }
-        if (lastAppliedFreq_ != newFreq) {
-            PowerUtils::setCpuFrequency(newFreq);
-            lastAppliedFreq_ = newFreq;
-            STATUS = "C";
-        }
-    } else {
-        if (lastAppliedFreq_ != newFreq) {
-            PowerUtils::setCpuFrequency(newFreq);
-            lastAppliedFreq_ = newFreq;
-            STATUS = "C";
-        }
+        
+        printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: %.5f, STATUS: %s, FREQ: %lu\n",
+           current_timestamp_.c_str(), 
+           sum_tot_cyc_,
+           sum_tot_ins_,
+           sum_l3_tcm_,
+           ratio, 
+           status, 
+           next_freq);
     }
-    printf("[URJA][%s][PAPI][AGGREGATED]> TOT_CYC: %lld, TOT_INS: %lld, L3_TCM: %lld, RATIO: %.5f, STATUS: %s, FREQ: %s\n",
-                    current_global_timestamp_.c_str(), SUM_TOT_CYC, SUM_TOT_INS, SUM_L3_TCM, ratio, STATUS.c_str(), newFreq.c_str());
-                    
-    SUM_TOT_CYC = 0;
-    SUM_TOT_INS = 0;
-    SUM_L3_TCM = 0;
+
+    if (next_freq != current_freq_) {
+        if (next_freq == max_freq_int_) {
+            power_.setCpuFrequency(max_freq_int_);
+        } else {
+            power_.setCpuFrequency(min_freq_int_);
+        }
+        current_freq_ = next_freq;
+        status = "C";
+    }
+
+    sum_tot_cyc_ = 0;
+    sum_tot_ins_ = 0;
+    sum_l3_tcm_ = 0;
 }

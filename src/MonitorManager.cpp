@@ -8,6 +8,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <thread>
+#include <sys/timerfd.h>
+#include <unistd.h>
+#include <cstdint>
+#include <cerrno>
 
 static useconds_t intervalMs = 0;
 static volatile int keepRunning = 1;
@@ -32,37 +36,64 @@ static void initSleepDuration() {
 void* MonitorManager::monitorLoop(void*) {
     static bool initialized = false;
     if (!initialized) {
-	initSleepDuration();
+        initSleepDuration();
         EnergyMonitor::getInstance().initialize();
         initialized = true;
-    }	
-    
-    while (keepRunning) {
-	    std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
+    }
 
+    int tfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+    if (tfd == -1) {
+        LoggerManager::getInstance().logLine(
+            "INIT", LogTag::ERROR, "timerfd_create failed, monitorLoop exiting.");
+        return nullptr;
+    }
+
+    itimerspec its{};
+    its.it_value.tv_sec  = intervalMs / 1000;
+    its.it_value.tv_nsec = (intervalMs % 1000) * 1000000L;
+    its.it_interval      = its.it_value;  // periodic timer
+
+    if (timerfd_settime(tfd, 0, &its, nullptr) == -1) {
+        LoggerManager::getInstance().logLine(
+            "INIT", LogTag::ERROR, "timerfd_settime failed, monitorLoop exiting.");
+        close(tfd);
+        return nullptr;
+    }
+
+    while (keepRunning) {
+        uint64_t expirations = 0;
+        ssize_t n = read(tfd, &expirations, sizeof(expirations));
+
+        if (n < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            LoggerManager::getInstance().logLine(
+                "INIT", LogTag::ERROR, "timerfd read failed, monitorLoop exiting.");
+            break;
+        }
+
+        if (n != sizeof(expirations) || expirations == 0) {
+            continue;
+        }
+
+        // Timestamp from steady_clock (monotonic)
+        auto now = std::chrono::steady_clock::now();
         std::string timestamp = std::to_string(
             std::chrono::duration_cast<std::chrono::milliseconds>(
-                start.time_since_epoch()
+                now.time_since_epoch()
             ).count()
         );
 
-        // Run energy and performance monitoring
         EnergyMonitor::getInstance().monitor(timestamp.c_str());
         PapiManager::getInstance().updateAllThreads(timestamp.c_str());
-
-        /*
-        // Measure and log the monitoring loop duration
-	    std::chrono::time_point<std::chrono::steady_clock> end = std::chrono::steady_clock::now();
-        std::chrono::duration<double, std::milli> elapsed = 
-            std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(end - start);
-
-        LoggerManager::getInstance().logLine(timestamp.c_str(), LogTag::DEBUG, "Monitoring loop duration: " + std::to_string(elapsed.count()) + " ms");
-        */
         LoggerManager::getInstance().process();
-        std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs)); // Wait before next sample
     }
+
+    close(tfd);
     return nullptr;
 }
+
 
 void MonitorManager::start() {
     pthread_create(&monitorThread, nullptr, monitorLoop, nullptr);

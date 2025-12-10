@@ -1,101 +1,44 @@
 #include "PowerUtils.hpp"
-#include "LoggerManager.hpp"
-#include "LogTag.hpp"
-
-#include <stdexcept>
+#include <fcntl.h>      // open
+#include <unistd.h>     // write, close
+#include <charconv>
+#include <array>
 #include <thread>
-#include <chrono>
-#include <iostream>
+#include <string>
 
-static std::vector<std::ofstream> cpuFiles;
+namespace PowerUtils {
 
-void PowerUtils::initCpuFiles() {
-    int cpuCount = std::thread::hardware_concurrency();
-    if (cpuCount <= 0) {
-        throw std::runtime_error("Failed to detect CPU count");
+    CpuManager& CpuManager::getInstance() {
+        static CpuManager instance;
+        return instance;
     }
 
-    cpuFiles.reserve(cpuCount);
-    for (int i = 0; i < cpuCount; ++i) {
-        std::string path = "/sys/devices/system/cpu/cpu" + std::to_string(i) + "/cpufreq/scaling_max_freq";
-        std::ofstream file(path);
-        if (!file) {
-            throw std::runtime_error("Cannot open " + path);
-        }
-        cpuFiles.push_back(std::move(file));
-    }
-}
+    void CpuManager::init() {
+        int cpuCount = std::thread::hardware_concurrency(); 
+        
+        m_freqFds.reserve(cpuCount);
 
-void PowerUtils::setFrequencyForAllCPUs(const std::string &freqGHz) {
-    for (auto &file : cpuFiles) {
-        file.seekp(0);
-        file << freqGHz << std::flush;
-        if (!file) {
-            LoggerManager::getInstance().logLine("POWER-UTILS", LogTag::ERROR, "Failed to write frequency!");
+        char pathBuffer[64];
+
+        for (int i = 0; i < cpuCount; ++i) {
+            sprintf(pathBuffer, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_max_freq", i);
+            int fd = open(pathBuffer, O_WRONLY);
+            if (fd >= 0) m_freqFds.push_back(fd);
         }
     }
+
+    void CpuManager::setGovernor(const char* governor) {
+    }
+
+    void CpuManager::setCpuFrequency(double freqKHz) {
+        uint64_t val = static_cast<uint64_t>(freqKHz);
+        std::array<char, 16> buffer;
+        auto [ptr, ec] = std::to_chars(buffer.data(), buffer.data() + buffer.size(), val);
+        if (ec == std::errc()) {
+            size_t len = ptr - buffer.data();            
+            for (int fd : m_freqFds) {
+                write(fd, buffer.data(), len);
+            }
+        }
+    }
 }
-
-void PowerUtils::setGovernor(const std::string& governor) {
-/*    std::string cmd = "sudo /var/shared/power/bin/set-power-options.sh -c all -g " + governor;
-    int ret = system(cmd.c_str());
-    if (ret != 0) {
-        LoggerManager::getInstance().logLine("POWER-UTILS", LogTag::ERROR, "Failed to set governor!");
-    }
-*/
-}
-
-void PowerUtils::setCpuFrequency(const std::string& freqGHz) {
-    using std::chrono::high_resolution_clock;
-    using std::chrono::duration_cast;
-    using std::chrono::milliseconds;
-
-    auto t1 = high_resolution_clock::now();
-    setFrequencyForAllCPUs(freqGHz);  // efficient batch write
-    auto t2 = high_resolution_clock::now();
-
-    auto ms_int = duration_cast<milliseconds>(t2 - t1);
-    std::chrono::duration<double, std::milli> ms_double = t2 - t1;
-
-    std::cout << "Time elapsed: " << ms_int.count() << "ms\n";
-    std::cout << "Time elapsed (double): " << ms_double.count() << "ms\n";
-}
-
-
-/*void PowerUtils::sysfsWriteFreq(int cpu, const std::string &value) {
-    std::string path = "/sys/devices/system/cpu/cpu" + std::to_string(cpu) + "/cpufreq/scaling_setspeed";
-    std::ofstream file(path);
-    if (!file) {
-        throw std::runtime_error("Cannot open " + path);
-    }
-    file << value;
-}*/
-
-/*void PowerUtils::setGovernor(const std::string& governor) {
-    std::string cmd = "sudo /var/shared/power/bin/set-power-options.sh -c all -g " + governor;
-    int ret = system(cmd.c_str());
-    if (ret != 0) {
-        LoggerManager::getInstance().logLine("POWER-UTILS", LogTag::ERROR, "Failed to set governor!");
-    }
-}*/
-
-/*void PowerUtils::setCpuFrequency(const std::string& freqGHz) {
-    using std::chrono::high_resolution_clock;
-    using std::chrono::duration_cast;
-    using std::chrono::duration;
-    using std::chrono::milliseconds;
-
-    auto t1 = high_resolution_clock::now();
-    std::string cmd = "sudo cpupower frequency-set --max " + freqGHz +"GHz > /dev/null 2>&1";
-    //std::string cmd = "sudo /var/shared/power/bin/set-power-options.sh -u " + freqGHz +"GHz  -d " + freqGHz +"GHz > /dev/null 2>&1";
-
-    int ret = system(cmd.c_str());
-    if (ret != 0) {
-        LoggerManager::getInstance().logLine("POWER-UTILS", LogTag::ERROR, "Failed to set frequency!");
-    }
-    auto t2 = high_resolution_clock::now();
-
-    duration<double, std::milli> ms_double = t2 - t1;
-
-    std::cout << "TIME: " << ms_double.count() << "ms\n";
-}*/
