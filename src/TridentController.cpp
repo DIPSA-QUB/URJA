@@ -1,6 +1,7 @@
 #include "TridentController.hpp"
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <stdexcept>
 #include <iostream>
 #include <numeric>

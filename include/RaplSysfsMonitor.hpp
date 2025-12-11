@@ -4,6 +4,7 @@
 #include "IEnergyBackend.hpp"
 #include <string>
 #include <vector>
+#include <cstdint>
 
 class RaplSysfsMonitor : public IEnergyBackend {
 public:
