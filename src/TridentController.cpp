@@ -100,17 +100,15 @@ void TridentController::process() {
     double next_freq_khz = current_freq_khz_;
     
     double ratio = 0.0;
-    double ipc = 0.0;
-    double miss_rate = 0.0;
     double avg_ratio = 0.0;
     double effective_ratio = 0.0;
 
-    const double noise_floor = 0.1;
+    const double noise_floor = 0.01;
 
     if (LIKELY(sum_tot_ins_ > 0 && sum_tot_cyc_ > 0)) {
         ratio = static_cast<double>(sum_l3_tcm_) / static_cast<double>(sum_tot_ins_);
-        ipc   = static_cast<double>(sum_tot_ins_) / static_cast<double>(sum_tot_cyc_);
-        miss_rate = static_cast<double>(sum_l3_tcm_) / static_cast<double>(sum_tot_cyc_);
+
+        if (ratio > 0.1) ratio = 0.1;
 
         if (history_filled_) {
             size_t next_neighbor_idx = (history_idx_ + 1) % window_size_;
