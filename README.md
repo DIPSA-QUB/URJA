@@ -36,33 +36,29 @@ There are two primary ways to run your application with **URJA**.
 
 #### Method 1: Using the urja Wrapper (Recommended)
 
-This method uses a wrapper script to automatically set the `LD_PRELOAD` path for you.
-
-Source the environment script once per session to add the urja wrapper to your PATH:
-
-For **Naive Controller** (default):
+`scripts/urja` sets `LD_PRELOAD` and the mode-specific environment variables for you, then launches your application directly. It locates `liburja.so` relative to its own path, so it works regardless of where the repo is cloned.
 
 ```bash
-source set_env.sh
-# or
-source set_env.sh naive
+scripts/urja [mode] [--] /path/to/your_app [app args...]
 ```
 
-For **Trident Controller**:
+`mode` is one of `stdio`, `file`, `csv` (default for this wrapper), `naive`, `trident`, `fsllcm` — see [Configuration](#configuration-environment-variables) below for what each mode does and its settings. For example:
 
 ```bash
-source set_env.sh trident
+scripts/urja trident /path/to/your_app
 ```
 
-> ⚠️ Ensure that the `URJA_SCRIPT_DIR` variable inside `scripts/set_env.sh` points to the correct path
+In `csv` mode, `URJA_CSV_PAPI_FILE`/`URJA_CSV_ENERGY_FILE` default to auto-generated names in the current directory (tagged with the command name, a timestamp, and the PID) rather than a fixed path — since this wrapper is meant to be callable from anywhere via `$PATH`, there's no single sane fixed default, and repeated or concurrent runs must not overwrite each other.
 
-> ⚠️ Set your desired configuration options in the script (see the next section).
-
-Run your application via the wrapper:
+Each mode's settings (thresholds, frequencies, file paths, ...) fall back to sane defaults but can be overridden by exporting the corresponding environment variable before calling `urja` — this also lets you set a mode once and reuse it across multiple runs without repeating it as an argument:
 
 ```bash
-urja /path/to/your_app
+export URJA_LOGGER=naive
+export URJA_NAIVE_MAX_FREQ=3200000
+scripts/urja /path/to/your_app
 ```
+
+> Add `scripts/` to your `PATH` (e.g. `export PATH="$HOME/urja/scripts:$PATH"`) to invoke it as plain `urja` from anywhere.
 
 #### Method 2: Manual LD_PRELOAD
 
@@ -100,9 +96,9 @@ LD_PRELOAD=build/bin/liburja.so /path/to/your_app
 ### Logger & Policy Selection
 
 #### URJA_LOGGER
-- Description: Selects the output logger or dynamic scaling policy.
+- Description: Selects the output logger or dynamic scaling policy. If unset, the library itself defaults to `stdio` (relevant for Method 2 below); the `scripts/urja` wrapper defaults to `csv` instead.
 - Options:
-    - `stdio`: (Default) Prints monitoring data to stdout.
+    - `stdio`: Prints monitoring data to stdout.
     - `file`: Writes monitoring data to a specified log file.
     - `csv`: Writes PAPI counters and energy readings to two separate CSV files.
     - `naive`: Enables a simple dynamic frequency scaling policy.

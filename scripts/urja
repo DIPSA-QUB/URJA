@@ -1,11 +1,118 @@
 #!/bin/bash
 
-LIB_PATH="$HOME/urja/build/bin/liburja.so"
+# ==============================================================================
+# URJA launcher: configures the environment variables for the selected
+# logger/controller mode, then LD_PRELOADs liburja.so around the given
+# command.
+#
+# Usage:
+#   urja [mode] [--] <command> [args...]
+#
+# Modes: stdio, file, csv (default), naive, trident, fsllcm
+#
+# In csv mode, output filenames are generated automatically (in the current
+# directory, tagged with the command name, a timestamp and the PID) unless
+# URJA_CSV_PAPI_FILE / URJA_CSV_ENERGY_FILE are already set -- this script is
+# meant to be callable from anywhere via $PATH, so there is no single sane
+# fixed default path, and concurrent/repeated runs must not collide.
+#
+# The mode can also be pre-exported as URJA_LOGGER instead of passed as an
+# argument -- useful for tuning individual settings (e.g. URJA_NAIVE_MAX_FREQ)
+# once in the shell and reusing them across multiple runs:
+#   export URJA_LOGGER=naive URJA_NAIVE_MAX_FREQ=3200000
+#   urja ./app_a
+#   urja ./app_b
+# ==============================================================================
 
-# Check if the library file exists
+set -e
+
+URJA_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_PATH="$URJA_SCRIPT_DIR/../build/bin/liburja.so"
+
+MODES="stdio file csv naive trident fsllcm"
+
 if [ ! -f "$LIB_PATH" ]; then
-    echo "Error: Dynamic library not found at $LIB_PATH" >&2
+    echo "[URJA][ERROR] Dynamic library not found at $LIB_PATH" >&2
     exit 1
 fi
 
-LD_PRELOAD="$LIB_PATH" "$@"
+MODE="${URJA_LOGGER:-csv}"
+if [[ " $MODES " == *" $1 "* ]]; then
+    MODE="$1"
+    shift
+fi
+[ "$1" == "--" ] && shift
+
+if [ $# -eq 0 ]; then
+    echo "Usage: urja [mode] [--] <command> [args...]" >&2
+    echo "Modes: $MODES" >&2
+    exit 1
+fi
+
+export URJA_PAPI_EVENTS="${URJA_PAPI_EVENTS:-PAPI_TOT_CYC,PAPI_TOT_INS,PAPI_L3_TCM}"
+export URJA_INTERVAL_MS="${URJA_INTERVAL_MS:-500}"
+export URJA_ENERGY_BACKEND="${URJA_ENERGY_BACKEND:-sysfs}"
+export URJA_LOGGER="$MODE"
+
+case "$MODE" in
+  stdio)
+    ;;
+
+  file)
+    export URJA_LOG_FILE="${URJA_LOG_FILE:-/tmp/urja.log}"
+    echo "[URJA][ENV] FileLogger configuration loaded."
+    echo "  LOG_FILE: $URJA_LOG_FILE"
+    ;;
+
+  csv)
+    RUN_TAG="$(basename "$1")_$(date +%Y%m%d_%H%M%S)_$$"
+    export URJA_CSV_PAPI_FILE="${URJA_CSV_PAPI_FILE:-urja_${RUN_TAG}_papi.csv}"
+    export URJA_CSV_ENERGY_FILE="${URJA_CSV_ENERGY_FILE:-urja_${RUN_TAG}_energy.csv}"
+    echo "[URJA][ENV] CSVLogger configuration loaded."
+    echo "  CSV_PAPI_FILE: $URJA_CSV_PAPI_FILE"
+    echo "  CSV_ENERGY_FILE: $URJA_CSV_ENERGY_FILE"
+    ;;
+
+  naive)
+    export URJA_NAIVE_MAX_FREQ="${URJA_NAIVE_MAX_FREQ:-2800000}"
+    export URJA_NAIVE_MIN_FREQ="${URJA_NAIVE_MIN_FREQ:-800000}"
+    export URJA_NAIVE_THRESHOLD="${URJA_NAIVE_THRESHOLD:-0.01}"
+    echo "[URJA][ENV] NaiveController configuration loaded."
+    echo "  MAX_FREQ: $URJA_NAIVE_MAX_FREQ"
+    echo "  MIN_FREQ: $URJA_NAIVE_MIN_FREQ"
+    echo "  THRESHOLD: $URJA_NAIVE_THRESHOLD"
+    ;;
+
+  trident)
+    export URJA_TRIDENT_MAX_FREQ="${URJA_TRIDENT_MAX_FREQ:-2000000}"
+    export URJA_TRIDENT_MID_FREQ="${URJA_TRIDENT_MID_FREQ:-1400000}"
+    export URJA_TRIDENT_MIN_FREQ="${URJA_TRIDENT_MIN_FREQ:-800000}"
+    export URJA_TRIDENT_LOWER_THRESHOLD="${URJA_TRIDENT_LOWER_THRESHOLD:-0.01}"
+    export URJA_TRIDENT_UPPER_THRESHOLD="${URJA_TRIDENT_UPPER_THRESHOLD:-0.02}"
+    echo "[URJA][ENV] TridentController configuration loaded."
+    echo "  MAX_FREQ: $URJA_TRIDENT_MAX_FREQ"
+    echo "  MID_FREQ: $URJA_TRIDENT_MID_FREQ"
+    echo "  MIN_FREQ: $URJA_TRIDENT_MIN_FREQ"
+    echo "  LOWER_THRESHOLD: $URJA_TRIDENT_LOWER_THRESHOLD"
+    echo "  UPPER_THRESHOLD: $URJA_TRIDENT_UPPER_THRESHOLD"
+    ;;
+
+  fsllcm)
+    export URJA_FSLLCM_PSTATES="${URJA_FSLLCM_PSTATES:-3900000,3400000,2900000,2400000,1900000,1400000,900000}"
+    export URJA_FSLLCM_MAX="${URJA_FSLLCM_MAX:-100}"
+    echo "[URJA][ENV] FSLLCMController configuration loaded."
+    echo "  PSTATES: $URJA_FSLLCM_PSTATES"
+    echo "  MAX: $URJA_FSLLCM_MAX"
+    ;;
+
+  *)
+    echo "[URJA][ERROR] Unknown logger type: $MODE" >&2
+    echo "Usage: urja [mode] [--] <command> [args...]" >&2
+    echo "Modes: $MODES" >&2
+    exit 1
+    ;;
+esac
+
+echo "[URJA][ENV] URJA_LOGGER set to '$URJA_LOGGER'."
+
+LD_PRELOAD="$LIB_PATH" exec "$@"
