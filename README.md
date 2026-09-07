@@ -107,6 +107,7 @@ LD_PRELOAD=build/bin/liburja.so /path/to/your_app
     - `csv`: Writes PAPI counters and energy readings to two separate CSV files.
     - `naive`: Enables a simple dynamic frequency scaling policy.
     - `trident`: Enables a 3-level dynamic frequency scaling policy.
+    - `fsllcm`: Enables the FS-LLCM N-level dynamic frequency scaling policy, linearly mapped from LLC misses per kilo-instruction.
 - Example: `export URJA_LOGGER=naive`
 
 ### Logger-Specific Settings
@@ -164,6 +165,22 @@ This policy adjusts CPU frequency between three levels (min/mid/max) based on tw
 ##### `URJA_TRIDENT_MAX_FREQ`
 - Description: The maximum frequency (in kHz).
 - Example: `export URJA_TRIDENT_MAX_FREQ=2000000`
+
+#### LOGGER: **fsllcm** (FS-LLCM Policy)
+Frequency Scaling via LLC Misses, from Hebbar, R. and Milenkovic, A., 2022. *PMU-events-driven DVFS techniques for improving energy efficiency of modern processors.* ACM TOMPECS, 7(1), pp.1-31.
+
+This policy computes LLC misses per kilo-instruction (MPKI) each interval and linearly maps it onto a caller-supplied list of P-states: `P_0` (index 0, highest frequency) through `P_n` (last index, lowest frequency). A low MPKI (compute-bound) selects a state near `P_0`; a high MPKI (memory-bound) selects a state near `P_n`. MPKI is bounded to `URJA_FSLLCM_MAX` before mapping, so anything at or above that value pins the lowest state.
+
+##### `URJA_FSLLCM_PSTATES`
+- Description: Comma-separated list of frequencies (in kHz), ordered from `P_0` (highest) to `P_n` (lowest). At least two states are required.
+- Example: `export URJA_FSLLCM_PSTATES=3900000,3400000,2900000,2400000,1900000,1400000,900000`
+
+##### `URJA_FSLLCM_MAX`
+- Description: The MPKI value that maps to the lowest P-state (`P_n`); anything higher is clamped to it.
+- Default: `100`
+- Example: `export URJA_FSLLCM_MAX=100`
+
+> The observation interval is `URJA_INTERVAL_MS`, shared with the other loggers — there is no separate interval setting for this policy.
 
 ## Set perf_event_paranoid
 

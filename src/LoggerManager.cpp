@@ -5,6 +5,7 @@
 #include "CSVLogger.hpp"
 #include "NaiveController.hpp"
 #include "TridentController.hpp"
+#include "FSLLCMController.hpp"
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -41,6 +42,8 @@ void LoggerManager::initialize() {
         logger_ = std::make_unique<NaiveController>();
     } else if (mode && strcmp(mode, "trident") == 0) {
         logger_ = std::make_unique<TridentController>();
+    } else if (mode && strcmp(mode, "fsllcm") == 0) {
+        logger_ = std::make_unique<FSLLCMController>();
     } else {
         printf("[URJA][ERROR] URJA_LOGGER not set. Using 'stdio'.\n");
         logger_ = std::make_unique<StdioLogger>();
