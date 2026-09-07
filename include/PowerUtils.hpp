@@ -8,16 +8,16 @@ namespace PowerUtils {
     public:
         static CpuManager& getInstance();
 
-        // Must be called once. No error checks.
         void init();
 
-        // Raw speed setters
-        void setGovernor(const char* governor); 
+        void setGovernor(const char* governor);
         void setCpuFrequency(double freqKHz);
+        void setUncoreFrequency(double freqKHz);
 
     private:
         CpuManager() = default;
-        
+
         std::vector<int> m_freqFds;
+        std::vector<int> m_uncoreMaxFds;
     };
 }

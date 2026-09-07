@@ -2,6 +2,7 @@
 #include "LoggerManager.hpp"
 #include "StdioLogger.hpp"
 #include "FileLogger.hpp"
+#include "CSVLogger.hpp"
 #include "NaiveController.hpp"
 #include "TridentController.hpp"
 #include <cstdlib>
@@ -23,6 +24,15 @@ void LoggerManager::initialize() {
             logger_ = std::make_unique<FileLogger>(file);
         } else {
             fprintf(stderr, "[URJA][ERROR] URJA_LOG_FILE not set.\n");
+            exit(1);
+        }
+    } else if (mode && strcmp(mode, "csv") == 0) {
+        const char* papiFile = std::getenv("URJA_CSV_PAPI_FILE");
+        const char* energyFile = std::getenv("URJA_CSV_ENERGY_FILE");
+        if (papiFile && energyFile) {
+            logger_ = std::make_unique<CSVLogger>(papiFile, energyFile);
+        } else {
+            fprintf(stderr, "[URJA][ERROR] URJA_CSV_PAPI_FILE and/or URJA_CSV_ENERGY_FILE not set.\n");
             exit(1);
         }
     } else if (mode && strcmp(mode, "stdio") == 0) {

@@ -104,6 +104,7 @@ LD_PRELOAD=build/bin/liburja.so /path/to/your_app
 - Options:
     - `stdio`: (Default) Prints monitoring data to stdout.
     - `file`: Writes monitoring data to a specified log file.
+    - `csv`: Writes PAPI counters and energy readings to two separate CSV files.
     - `naive`: Enables a simple dynamic frequency scaling policy.
     - `trident`: Enables a 3-level dynamic frequency scaling policy.
 - Example: `export URJA_LOGGER=naive`
@@ -114,6 +115,17 @@ LD_PRELOAD=build/bin/liburja.so /path/to/your_app
 ##### `URJA_LOG_FILE`
 - Description: The full path for the output log file when using `URJA_LOGGER=file`.
 - Example: `export URJA_LOG_FILE=/tmp/urja.log`
+
+#### LOGGER: **csv**
+##### `URJA_CSV_PAPI_FILE`
+- Description: Full path for the CSV file holding per-thread PAPI counter deltas (columns: `timestamp,tag,tid,pthread_id,counter,value`).
+- Example: `export URJA_CSV_PAPI_FILE=/tmp/urja_papi.csv`
+
+##### `URJA_CSV_ENERGY_FILE`
+- Description: Full path for the CSV file holding energy readings (columns: `timestamp,tag,domain,value`).
+- Example: `export URJA_CSV_ENERGY_FILE=/tmp/urja_energy.csv`
+
+> Both files are truncated (not appended) at startup, and are flushed once per monitoring interval so a killed job still leaves usable data. Free-text INIT/ERROR/DEBUG messages are printed to stderr rather than written into either CSV.
 
 #### LOGGER: **naive** (Naive Policy)
 This policy adjusts CPU frequency between two levels (min/max) based on a single threshold.
