@@ -140,15 +140,57 @@ This policy adjusts CPU frequency between two levels (min/max) based on a single
 - Example: `export URJA_NAIVE_MAX_FREQ=2800000`
 
 #### LOGGER: **trident** (Trident Policy)
-This policy adjusts CPU frequency between three levels (min/mid/max) based on two thresholds.
+This policy adjusts CPU frequency between three levels (min/mid/max) based on two
+thresholds on `ratio = L3_TCM / TOT_INS` (LLC misses per instruction, i.e.
+MPKI / 1000), aggregated over all threads each interval:
+
+| Condition | Interpretation | Frequency |
+|---|---|---|
+| `ratio < LOWER_THRESHOLD - HYSTERESIS` | compute-bound | `MAX_FREQ` |
+| `LOWER_THRESHOLD + HYSTERESIS <= ratio <= UPPER_THRESHOLD - HYSTERESIS` | balanced | `MID_FREQ` |
+| `ratio > UPPER_THRESHOLD + HYSTERESIS` | memory-bound | `MIN_FREQ` |
+| otherwise (inside a hysteresis band) | ambiguous | unchanged |
+
+The controller keeps a sliding window of the last `WINDOW_SIZE` ratios. When it
+sees more than `TRANSITION_LIMIT` interval-to-interval jumps larger than
+`NOISE_FLOOR` inside that window (a phase-changing / noisy workload) it decides on
+the windowed mean instead of the instantaneous ratio, to suppress frequency
+oscillation; otherwise it uses the instantaneous ratio for responsiveness.
+
+The defaults below were calibrated from an NPB3.4.3 D-class sweep. Note
+`HYSTERESIS` must be smaller than `LOWER_THRESHOLD`, otherwise
+`LOWER_THRESHOLD - HYSTERESIS` is negative and the `MAX_FREQ` branch can never be
+taken.
 
 ##### `URJA_TRIDENT_LOWER_THRESHOLD`
-- Description: The lower ratio threshold. If below this, frequency is set to `MIN_FREQ`.
-- Example: `export URJA_TRIDENT_LOWER_THRESHOLD=0.01`
+- Description: Below this ratio (minus `HYSTERESIS`) the workload is treated as compute-bound and frequency is set to `MAX_FREQ`.
+- Default: `0.003` (3 MPKI)
+- Example: `export URJA_TRIDENT_LOWER_THRESHOLD=0.003`
 
 ##### `URJA_TRIDENT_UPPER_THRESHOLD`
-- Description: The upper ratio threshold. If above this, frequency is set to `MAX_FREQ`. (If between lower and upper, MID_FREQ is used).
-- Example: `export URJA_TRIDENT_UPPER_THRESHOLD=0.02`
+- Description: Above this ratio (plus `HYSTERESIS`) the workload is treated as memory-bound and frequency is set to `MIN_FREQ`. Between the two thresholds, `MID_FREQ` is used.
+- Default: `0.045` (45 MPKI)
+- Example: `export URJA_TRIDENT_UPPER_THRESHOLD=0.045`
+
+##### `URJA_TRIDENT_HYSTERESIS`
+- Description: Half-width of the dead band around each threshold; a decision only changes once the ratio moves this far past a threshold. Must be `< URJA_TRIDENT_LOWER_THRESHOLD`.
+- Default: `0.001` (1 MPKI)
+- Example: `export URJA_TRIDENT_HYSTERESIS=0.001`
+
+##### `URJA_TRIDENT_WINDOW_SIZE`
+- Description: Number of past intervals kept for the moving average / transition count. Its time span is `WINDOW_SIZE * URJA_INTERVAL_MS`. Smaller values track phase changes faster; larger values smooth more.
+- Default: `6`
+- Example: `export URJA_TRIDENT_WINDOW_SIZE=6`
+
+##### `URJA_TRIDENT_NOISE_FLOOR`
+- Description: Minimum interval-to-interval change in `ratio` that counts as a "transition" for the window-average collapse.
+- Default: `0.01` (10 MPKI)
+- Example: `export URJA_TRIDENT_NOISE_FLOOR=0.01`
+
+##### `URJA_TRIDENT_TRANSITION_LIMIT`
+- Description: If the number of transitions in the window exceeds this, the controller switches from the instantaneous ratio to the windowed mean.
+- Default: `2`
+- Example: `export URJA_TRIDENT_TRANSITION_LIMIT=2`
 
 ##### `URJA_TRIDENT_MIN_FREQ`
 - Description: The minimum frequency (in kHz).

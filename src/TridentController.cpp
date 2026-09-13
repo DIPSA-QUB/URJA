@@ -29,12 +29,24 @@ TridentController::TridentController() : power_(PowerUtils::CpuManager::getInsta
         mid_freq_khz_ = static_cast<double>(mid_khz);
         min_freq_khz_ = static_cast<double>(min_khz);
 
-        lower_threshold_ = std::stof(getEnv("URJA_TRIDENT_LOWER_THRESHOLD", "0.03"));
-        upper_threshold_ = std::stof(getEnv("URJA_TRIDENT_UPPER_THRESHOLD", "0.08"));
-        hysteresis_      = std::stof(getEnv("URJA_TRIDENT_HYSTERESIS", "0.005"));
+        // Thresholds compare against ratio = L3_TCM / TOT_INS (== MPKI / 1000).
+        // Defaults calibrated from an NPB3.4.3 D-class sweep: compute-bound
+        // (< 3 MPKI) -> MAX, memory-bound (> 45 MPKI) -> MIN, else MID.
+        // NOTE: hysteresis_ must stay below lower_threshold_, otherwise
+        // (lower_threshold_ - hysteresis_) < 0 and the MAX branch is unreachable.
+        lower_threshold_ = std::stof(getEnv("URJA_TRIDENT_LOWER_THRESHOLD", "0.003"));
+        upper_threshold_ = std::stof(getEnv("URJA_TRIDENT_UPPER_THRESHOLD", "0.045"));
+        hysteresis_      = std::stof(getEnv("URJA_TRIDENT_HYSTERESIS", "0.001"));
 
-        int win_input = std::stoi(getEnv("URJA_TRIDENT_WINDOW_SIZE", "10"));
-        window_size_ = (win_input > 0) ? static_cast<size_t>(win_input) : 10;
+        // Window-average "collapse": when more than transition_limit_ inter-interval
+        // jumps larger than noise_floor_ sit in the window, process() switches from
+        // the instantaneous ratio to the windowed mean.
+        noise_floor_      = std::stod(getEnv("URJA_TRIDENT_NOISE_FLOOR", "0.01"));
+        transition_limit_ = std::stoi(getEnv("URJA_TRIDENT_TRANSITION_LIMIT", "2"));
+        if (transition_limit_ < 0) transition_limit_ = 0;
+
+        int win_input = std::stoi(getEnv("URJA_TRIDENT_WINDOW_SIZE", "6"));
+        window_size_ = (win_input > 0) ? static_cast<size_t>(win_input) : 6;
         history_buffer_.resize(window_size_, 0.0);
         
         transition_count_ = 0;
@@ -50,9 +62,12 @@ TridentController::TridentController() : power_(PowerUtils::CpuManager::getInsta
         max_freq_khz_ = 2400000.0;
         mid_freq_khz_ = 1800000.0;
         min_freq_khz_ = 1200000.0;
-        lower_threshold_ = 0.03f;
-        upper_threshold_ = 0.08f;
-        window_size_ = 10;
+        lower_threshold_ = 0.003f;
+        upper_threshold_ = 0.045f;
+        hysteresis_ = 0.001f;
+        noise_floor_ = 0.01;
+        transition_limit_ = 2;
+        window_size_ = 6;
         history_buffer_.resize(window_size_, 0.0);
     }
 }
@@ -103,7 +118,7 @@ void TridentController::process() {
     double avg_ratio = 0.0;
     double effective_ratio = 0.0;
 
-    const double noise_floor = 0.01;
+    const double noise_floor = noise_floor_;
 
     if (LIKELY(sum_tot_ins_ > 0 && sum_tot_cyc_ > 0)) {
         ratio = static_cast<double>(sum_l3_tcm_) / static_cast<double>(sum_tot_ins_);
@@ -144,8 +159,7 @@ void TridentController::process() {
         if (count == 0) count = 1.0; 
         avg_ratio = history_sum_ / count;
 
-        int transition_limit = 2;
-        if (transition_limit < 0) transition_limit = 0;
+        const int transition_limit = transition_limit_;
         if (transition_count_ <= transition_limit) {
             effective_ratio = ratio;
             status = "F"; 

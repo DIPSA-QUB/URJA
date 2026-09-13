@@ -34,6 +34,8 @@ private:
     float lower_threshold_;
     float upper_threshold_;
     float hysteresis_;
+    double noise_floor_ = 0.01;
+    int transition_limit_ = 2;
 
     long long sum_tot_cyc_ = 0;
     long long sum_tot_ins_ = 0;
